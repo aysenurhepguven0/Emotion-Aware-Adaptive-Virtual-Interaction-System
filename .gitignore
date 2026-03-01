@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.gemini/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Dataset (büyük dosyalar)
+data/fer2013/
+data/raf-db/
+data/ck+/
+
+# Eğitilmiş modeller (büyük dosyalar)
+outputs/models/*.pth
+outputs/training_history*.json
+outputs/plots/
+
+# LaTeX rapor dosyaları (ayrı teslim ediliyor)
+*.tex
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bcf
+*.run.xml
+*.bbl
+*.blg
+
+# PDF belgeler
+belgeler/
+*.pdf
+Literatür_Taraması.pdf
+
+# Planlama notları (repo'da gerek yok)
+haftalik_plan.md
+teknoloji_onerileri.md
+sistem_mimarisi.md
