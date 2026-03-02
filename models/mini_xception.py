@@ -1,21 +1,21 @@
 """
-models/mini_xception.py - Mini-Xception CNN Modeli
+models/mini_xception.py - Mini-Xception CNN Model
 ===================================================
-Depthwise Separable Convolution tabanlı hafif CNN mimarisi.
-Orijinal Xception'dan esinlenilmiş, FER2013 için optimize edilmiş.
+Lightweight CNN architecture based on Depthwise Separable Convolutions.
+Inspired by the original Xception, optimized for FER2013.
 
-Referans:
+Reference:
 - Arriaga et al., "Real-time Convolutional Neural Networks for
   Emotion and Gender Classification" (2017)
 - Chollet, "Xception: Deep Learning with Depthwise Separable
   Convolutions" (2017)
 
-Mimari Özellikleri:
-- Depthwise Separable Convolution: Standart conv'a göre ~8-9x daha az parametre
-- Residual (Skip) Connections: Gradyan akışını iyileştirir
-- Global Average Pooling: FC katmanlarını azaltır, overfitting'i önler
+Architecture Features:
+- Depthwise Separable Convolution: ~8-9x fewer parameters than standard conv
+- Residual (Skip) Connections: Improved gradient flow
+- Global Average Pooling: Reduces FC layers, prevents overfitting
 - Batch Normalization + Dropout: Regularization
-- ~60K parametre: i5 + 4GB RAM'de rahat çalışır
+- ~60K parameters: Runs comfortably on i5 + 4GB RAM
 """
 
 import torch
@@ -30,38 +30,38 @@ import config
 
 class SeparableConv2d(nn.Module):
     """
-    Depthwise Separable Convolution bloğu.
+    Depthwise Separable Convolution block.
 
-    İki aşamadan oluşur:
-    1. Depthwise Conv: Her kanal ayrı ayrı filtrelenir
-    2. Pointwise Conv (1x1): Kanal bilgileri birleştirilir
+    Consists of two stages:
+    1. Depthwise Conv: Each channel is filtered separately
+    2. Pointwise Conv (1x1): Channel information is combined
 
-    Bu yaklaşım standart convolution'a göre çok daha az parametre kullanır.
-    Örnek: 3x3 conv, 64->128 kanal:
-      - Standart: 64 x 128 x 3 x 3 = 73,728 parametre
-      - Separable: (64 x 1 x 3 x 3) + (64 x 128 x 1 x 1) = 576 + 8,192 = 8,768 parametre
+    This approach uses significantly fewer parameters than standard conv.
+    Example: 3x3 conv, 64->128 channels:
+      - Standard: 64 x 128 x 3 x 3 = 73,728 parameters
+      - Separable: (64 x 1 x 3 x 3) + (64 x 128 x 1 x 1) = 8,768 parameters
     """
 
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):
         super(SeparableConv2d, self).__init__()
 
-        # Depthwise: Her input kanalı ayrı filtre ile işlenir
+        # Depthwise: Each input channel is processed with its own filter
         self.depthwise = nn.Conv2d(
             in_channels, in_channels,
             kernel_size=kernel_size,
             padding=padding,
-            groups=in_channels,  # groups=in_channels → depthwise
+            groups=in_channels,  # groups=in_channels -> depthwise
             bias=False
         )
 
-        # Pointwise: 1x1 conv ile kanallar birleştirilir
+        # Pointwise: 1x1 conv combines channel information
         self.pointwise = nn.Conv2d(
             in_channels, out_channels,
             kernel_size=1,
             bias=False
         )
 
-        # Batch Normalization: Eğitimi stabilize eder
+        # Batch Normalization: Stabilizes training
         self.bn = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
@@ -73,36 +73,37 @@ class SeparableConv2d(nn.Module):
 
 class ResidualBlock(nn.Module):
     """
-    Residual (artık) bağlantılı blok.
+    Residual (skip) connection block.
 
-    Yapı:
-        input → SepConv → ReLU → SepConv → + → ReLU → MaxPool → output
-          |                                  ↑
-          └──────── 1x1 Conv ────────────────┘  (skip connection)
+    Structure:
+        input -> SepConv -> ReLU -> SepConv -> + -> ReLU -> MaxPool -> output
+          |                                    ^
+          +---------- 1x1 Conv ----------------+  (skip connection)
 
-    Skip connection sayesinde:
-    - Gradyanlar daha kolay akabilir (vanishing gradient problemi azalır)
-    - Ağ, identity mapping öğrenebilir
+    Benefits of skip connections:
+    - Gradients flow more easily (mitigates vanishing gradient problem)
+    - Network can learn identity mappings
     """
 
     def __init__(self, in_channels, out_channels):
         super(ResidualBlock, self).__init__()
 
-        # Ana yol: 2 adet Separable Convolution
+        # Main path: 2 Separable Convolutions
         self.sep_conv1 = SeparableConv2d(in_channels, out_channels)
         self.sep_conv2 = SeparableConv2d(out_channels, out_channels)
 
-        # Max Pooling: Boyutu yarıya düşürür
+        # Max Pooling: Halves spatial dimensions
         self.pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        # Skip connection: Kanal sayısı değişiyorsa 1x1 conv uygula
+        # Skip connection: Apply 1x1 conv if channel count changes
         self.skip = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2, bias=False),
+            nn.Conv2d(in_channels, out_channels,
+                      kernel_size=1, stride=2, bias=False),
             nn.BatchNorm2d(out_channels)
         )
 
     def forward(self, x):
-        # Ana yol
+        # Main path
         residual = x
         x = F.relu(self.sep_conv1(x))
         x = self.sep_conv2(x)
@@ -111,7 +112,7 @@ class ResidualBlock(nn.Module):
         # Skip connection
         residual = self.skip(residual)
 
-        # Element-wise toplama
+        # Element-wise addition
         x = x + residual
         x = F.relu(x)
         return x
@@ -119,41 +120,41 @@ class ResidualBlock(nn.Module):
 
 class MiniXception(nn.Module):
     """
-    Mini-Xception: Yüz ifadesi tanıma için hafif CNN modeli.
+    Mini-Xception: Lightweight CNN model for facial expression recognition.
 
-    Mimari:
+    Architecture:
         Input [1, 48, 48]
-          ↓
-        Conv2d (5x5, 8 filtre) → BN → ReLU          [8, 48, 48]
-          ↓
-        Conv2d (5x5, 8 filtre) → BN → ReLU          [8, 48, 48]
-          ↓
-        ResidualBlock (8 → 16)                        [16, 24, 24]
-          ↓
-        ResidualBlock (16 → 32)                       [32, 12, 12]
-          ↓
-        ResidualBlock (32 → 64)                       [64, 6, 6]
-          ↓
-        ResidualBlock (64 → 128)                      [128, 3, 3]
-          ↓
-        Conv2d (3x3, 256) → BN → ReLU               [256, 3, 3]
-          ↓
-        Global Average Pooling                        [256]
-          ↓
-        Dropout (0.5)                                 [256]
-          ↓
-        Fully Connected → 7 sınıf                    [7]
+          |
+        Conv2d (5x5, 8 filters) -> BN -> ReLU          [8, 48, 48]
+          |
+        Conv2d (5x5, 8 filters) -> BN -> ReLU          [8, 48, 48]
+          |
+        ResidualBlock (8 -> 16)                          [16, 24, 24]
+          |
+        ResidualBlock (16 -> 32)                         [32, 12, 12]
+          |
+        ResidualBlock (32 -> 64)                         [64, 6, 6]
+          |
+        ResidualBlock (64 -> 128)                        [128, 3, 3]
+          |
+        Conv2d (3x3, 256) -> BN -> ReLU                 [256, 3, 3]
+          |
+        Global Average Pooling                            [256]
+          |
+        Dropout (0.5)                                     [256]
+          |
+        Fully Connected -> 6 classes                      [6]
 
-    Parametreler:
-        num_classes (int): Çıkış sınıf sayısı (varsayılan: 7)
-        in_channels (int): Giriş kanal sayısı (varsayılan: 1, gri tonlama)
+    Args:
+        num_classes (int): Number of output classes (default: 6)
+        in_channels (int): Number of input channels (default: 1, grayscale)
     """
 
     def __init__(self, num_classes=6, in_channels=1):
         super(MiniXception, self).__init__()
 
-        # ---- Giriş Katmanları ----
-        # İlk convolution: Temel kenar ve doku özelliklerini çıkarır
+        # ---- Input Layers ----
+        # First convolution: Extracts basic edge and texture features
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels, 8, kernel_size=5, padding=2, bias=False),
             nn.BatchNorm2d(8),
@@ -166,37 +167,37 @@ class MiniXception(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-        # ---- Residual Bloklar ----
-        # Her blok: boyutu yarıya düşürür, kanal sayısını artırır
-        self.block1 = ResidualBlock(8, 16)     # 48x48 → 24x24
-        self.block2 = ResidualBlock(16, 32)    # 24x24 → 12x12
-        self.block3 = ResidualBlock(32, 64)    # 12x12 → 6x6
-        self.block4 = ResidualBlock(64, 128)   # 6x6   → 3x3
+        # ---- Residual Blocks ----
+        # Each block: halves spatial size, increases channel count
+        self.block1 = ResidualBlock(8, 16)     # 48x48 -> 24x24
+        self.block2 = ResidualBlock(16, 32)    # 24x24 -> 12x12
+        self.block3 = ResidualBlock(32, 64)    # 12x12 -> 6x6
+        self.block4 = ResidualBlock(64, 128)   # 6x6   -> 3x3
 
-        # ---- Son Katmanlar ----
+        # ---- Final Layers ----
         self.conv_final = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True)
         )
 
-        # Global Average Pooling: Her kanal için tek bir değer
-        # Bu, FC katman sayısını azaltır ve overfitting'i önler
+        # Global Average Pooling: Single value per channel
+        # Reduces FC layer count and prevents overfitting
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
 
-        # Dropout: Eğitimde rastgele nöronları kapatır
+        # Dropout: Randomly disables neurons during training
         self.dropout = nn.Dropout(p=0.5)
 
-        # Sınıflandırma katmanı
+        # Classification layer
         self.fc = nn.Linear(256, num_classes)
 
-        # Ağırlıkları initialize et
+        # Initialize weights
         self._initialize_weights()
 
     def _initialize_weights(self):
         """
-        Kaiming (He) initialization uygular.
-        ReLU aktivasyonlu ağlar için önerilir.
+        Applies Kaiming (He) initialization.
+        Recommended for networks with ReLU activation.
         """
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -211,25 +212,25 @@ class MiniXception(nn.Module):
 
     def forward(self, x):
         """
-        İleri yönlü geçiş (forward pass).
+        Forward pass.
 
-        Parametreler:
-            x (Tensor): [batch_size, 1, 48, 48] boyutunda giriş
+        Args:
+            x (Tensor): Input of shape [batch_size, 1, 48, 48]
 
         Returns:
-            Tensor: [batch_size, num_classes] boyutunda logit çıkışı
+            Tensor: Logit output of shape [batch_size, num_classes]
         """
-        # Giriş katmanları
+        # Input layers
         x = self.conv1(x)
         x = self.conv2(x)
 
-        # Residual bloklar
+        # Residual blocks
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
         x = self.block4(x)
 
-        # Son katmanlar
+        # Final layers
         x = self.conv_final(x)
         x = self.global_avg_pool(x)   # [batch, 256, 1, 1]
         x = x.view(x.size(0), -1)     # [batch, 256] - flatten
@@ -240,11 +241,11 @@ class MiniXception(nn.Module):
 
     def get_feature_vector(self, x):
         """
-        Son FC katmanı öncesindeki özellik vektörünü döndürür.
-        Transfer learning veya t-SNE görselleştirme için kullanılır.
+        Returns the feature vector before the final FC layer.
+        Useful for transfer learning or t-SNE visualization.
 
         Returns:
-            Tensor: [batch_size, 256] boyutunda özellik vektörü
+            Tensor: Feature vector of shape [batch_size, 256]
         """
         x = self.conv1(x)
         x = self.conv2(x)
@@ -260,13 +261,14 @@ class MiniXception(nn.Module):
 
 def get_model(num_classes=None, in_channels=None, pretrained_path=None):
     """
-    Model factory fonksiyonu.
-    Farklı konfigürasyonlar veya pretrained model yüklemek için kullanılır.
+    Model factory function.
+    Used for creating models with different configurations or loading
+    pretrained weights.
 
-    Parametreler:
-        num_classes (int): Sınıf sayısı (varsayılan: config.NUM_CLASSES)
-        in_channels (int): Giriş kanalı (varsayılan: config.NUM_CHANNELS)
-        pretrained_path (str): Pretrained model yolu (opsiyonel)
+    Args:
+        num_classes (int): Number of classes (default: config.NUM_CLASSES)
+        in_channels (int): Input channels (default: config.NUM_CHANNELS)
+        pretrained_path (str): Path to pretrained model (optional)
 
     Returns:
         MiniXception: Model instance
@@ -278,26 +280,28 @@ def get_model(num_classes=None, in_channels=None, pretrained_path=None):
 
     model = MiniXception(num_classes=num_classes, in_channels=in_channels)
 
-    # Pretrained ağırlıkları yükle (varsa)
+    # Load pretrained weights if available
     if pretrained_path and os.path.exists(pretrained_path):
-        print(f"[INFO] Pretrained model yükleniyor: {pretrained_path}")
+        print(f"[INFO] Loading pretrained model: {pretrained_path}")
         checkpoint = torch.load(pretrained_path, map_location=config.DEVICE)
 
-        # checkpoint dict ise state_dict'i çıkar
+        # Extract state_dict if checkpoint is a dict
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             model.load_state_dict(checkpoint["model_state_dict"])
         else:
             model.load_state_dict(checkpoint)
 
-        print("[INFO] Pretrained model başarıyla yüklendi.")
+        print("[INFO] Pretrained model loaded successfully.")
 
-    # Parametre sayısını yazdır
+    # Print parameter count
     total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    trainable_params = sum(
+        p.numel() for p in model.parameters() if p.requires_grad
+    )
     print(f"\n[MODEL] Mini-Xception")
-    print(f"  Toplam parametre:     {total_params:,}")
-    print(f"  Eğitilebilir param.:  {trainable_params:,}")
-    print(f"  Sınıf sayısı:        {num_classes}")
-    print(f"  Giriş kanalı:        {in_channels}")
+    print(f"  Total parameters:     {total_params:,}")
+    print(f"  Trainable parameters: {trainable_params:,}")
+    print(f"  Number of classes:    {num_classes}")
+    print(f"  Input channels:       {in_channels}")
 
     return model

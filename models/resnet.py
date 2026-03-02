@@ -1,15 +1,15 @@
 """
-models/efficientnet.py - EfficientNet-B0 Model (Transfer Learning)
-====================================================================
-Facial expression recognition using ImageNet pretrained EfficientNet-B0.
+models/resnet.py - ResNet-18 Model (Transfer Learning)
+========================================================
+Facial expression recognition using ImageNet pretrained ResNet-18.
 
 - Transfer Learning with pretrained weights
 - Automatic Grayscale (1 channel) -> RGB (3 channel) conversion
 - Final layer adapted for 6 classes (6 Ekman emotions)
-- ~5.3M parameters (4M frozen + 1.3M trainable)
+- ~11.2M parameters (majority frozen, ~1.3M trainable)
 
 Reference:
-    Tan, M. & Le, Q.V. (2019). EfficientNet: Rethinking Model Scaling
+    He, K. et al. (2016). Deep Residual Learning for Image Recognition
 """
 
 import torch
@@ -22,30 +22,30 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 
-class EfficientNetB0(nn.Module):
+class ResNet18(nn.Module):
     """
-    EfficientNet-B0 based emotion recognition model.
+    ResNet-18 based emotion recognition model.
 
     Transfer Learning strategy:
-        1. Load ImageNet pretrained EfficientNet-B0
-        2. Freeze initial layers (frozen) -- general features preserved
-        3. Fine-tune final layers -- specialized for emotion recognition
+        1. Load ImageNet pretrained ResNet-18
+        2. Freeze initial layers (general features preserved)
+        3. Fine-tune final residual layers (specialized for FER)
         4. Classifier adapted for 6 classes
 
-    Input: [batch, 1, 48, 48] (grayscale) -> auto [batch, 3, 48, 48] (RGB)
+    Input: [batch, 1, 48, 48] or [batch, 3, 224, 224]
     Output: [batch, 6] (6 emotion class logits)
     """
 
-    def __init__(self, num_classes=6, in_channels=1,
+    def __init__(self, num_classes=6, in_channels=3,
                  freeze_backbone=True, unfreeze_last_n=2):
         """
         Args:
             num_classes (int): Number of classes (default: 6)
             in_channels (int): Input channels (1=grayscale, 3=RGB)
             freeze_backbone (bool): Freeze backbone (Transfer Learning)
-            unfreeze_last_n (int): Number of last blocks to unfreeze
+            unfreeze_last_n (int): Number of last residual layers to unfreeze
         """
-        super(EfficientNetB0, self).__init__()
+        super(ResNet18, self).__init__()
 
         self.in_channels = in_channels
 
@@ -58,15 +58,14 @@ class EfficientNetB0(nn.Module):
         else:
             self.channel_adapter = None
 
-        # Load ImageNet pretrained EfficientNet-B0
-        weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1
-        self.backbone = models.efficientnet_b0(weights=weights)
+        # Load ImageNet pretrained ResNet-18
+        weights = models.ResNet18_Weights.IMAGENET1K_V1
+        self.backbone = models.resnet18(weights=weights)
 
-        # Remove original classifier
-        in_features = self.backbone.classifier[1].in_features  # 1280
+        # Replace final FC layer
+        in_features = self.backbone.fc.in_features  # 512
 
-        # New classifier: Dropout -> FC -> ReLU -> Dropout -> FC
-        self.backbone.classifier = nn.Sequential(
+        self.backbone.fc = nn.Sequential(
             nn.Dropout(p=0.4),
             nn.Linear(in_features, 256),
             nn.ReLU(),
@@ -80,25 +79,38 @@ class EfficientNetB0(nn.Module):
 
     def _freeze_backbone(self, unfreeze_last_n=2):
         """
-        Freeze backbone layers, unfreeze last N blocks.
+        Freeze backbone layers, unfreeze last N residual layers.
 
-        EfficientNet-B0 features structure:
-            - features[0]: Stem (Conv + BN)
-            - features[1-8]: MBConv blocks
-            - features[8]: Head (Conv + BN)
+        ResNet-18 structure:
+            - conv1, bn1: Initial convolution
+            - layer1: Residual block 1 (2 BasicBlocks)
+            - layer2: Residual block 2 (2 BasicBlocks)
+            - layer3: Residual block 3 (2 BasicBlocks)
+            - layer4: Residual block 4 (2 BasicBlocks)
         """
-        # First freeze all
-        for param in self.backbone.features.parameters():
-            param.requires_grad = False
+        # First freeze all backbone layers
+        layers = [
+            self.backbone.conv1, self.backbone.bn1,
+            self.backbone.layer1, self.backbone.layer2,
+            self.backbone.layer3, self.backbone.layer4
+        ]
 
-        # Unfreeze last N blocks (fine-tuning)
-        total_blocks = len(self.backbone.features)
-        for i in range(max(0, total_blocks - unfreeze_last_n), total_blocks):
-            for param in self.backbone.features[i].parameters():
+        for layer in layers:
+            for param in layer.parameters():
+                param.requires_grad = False
+
+        # Unfreeze last N residual layers
+        residual_layers = [
+            self.backbone.layer1, self.backbone.layer2,
+            self.backbone.layer3, self.backbone.layer4
+        ]
+        for i in range(max(0, len(residual_layers) - unfreeze_last_n),
+                       len(residual_layers)):
+            for param in residual_layers[i].parameters():
                 param.requires_grad = True
 
         # Classifier is always trainable
-        for param in self.backbone.classifier.parameters():
+        for param in self.backbone.fc.parameters():
             param.requires_grad = True
 
     def unfreeze_all(self):
@@ -111,7 +123,7 @@ class EfficientNetB0(nn.Module):
         Forward pass.
 
         Args:
-            x (Tensor): [batch, 1, 48, 48] or [batch, 3, 48, 48]
+            x (Tensor): [batch, in_channels, H, W]
 
         Returns:
             Tensor: [batch, num_classes] logit output
@@ -133,40 +145,49 @@ class EfficientNetB0(nn.Module):
         if self.channel_adapter is not None:
             x = self.channel_adapter(x)
 
-        # Pass through features
-        x = self.backbone.features(x)
+        # Pass through backbone (without FC)
+        x = self.backbone.conv1(x)
+        x = self.backbone.bn1(x)
+        x = self.backbone.relu(x)
+        x = self.backbone.maxpool(x)
+
+        x = self.backbone.layer1(x)
+        x = self.backbone.layer2(x)
+        x = self.backbone.layer3(x)
+        x = self.backbone.layer4(x)
+
         x = self.backbone.avgpool(x)
         x = torch.flatten(x, 1)
 
-        # Pass through first 3 layers of classifier (Dropout -> Linear -> ReLU)
+        # Pass through first 3 layers of FC (Dropout -> Linear -> ReLU)
         for i in range(3):
-            x = self.backbone.classifier[i](x)
+            x = self.backbone.fc[i](x)
 
         return x
 
 
-def get_efficientnet_model(num_classes=None, in_channels=None,
-                           pretrained_path=None, freeze_backbone=True,
-                           unfreeze_last_n=2):
+def get_resnet_model(num_classes=None, in_channels=None,
+                     pretrained_path=None, freeze_backbone=True,
+                     unfreeze_last_n=2):
     """
-    EfficientNet-B0 model factory function.
+    ResNet-18 model factory function.
 
     Args:
         num_classes (int): Number of classes
         in_channels (int): Input channels
         pretrained_path (str): Path to previously trained model
         freeze_backbone (bool): Freeze backbone
-        unfreeze_last_n (int): Number of last blocks to unfreeze
+        unfreeze_last_n (int): Number of last residual layers to unfreeze
 
     Returns:
-        EfficientNetB0: Model instance
+        ResNet18: Model instance
     """
     if num_classes is None:
         num_classes = config.NUM_CLASSES
     if in_channels is None:
-        in_channels = config.NUM_CHANNELS
+        in_channels = config.MODEL_CONFIGS["resnet"]["num_channels"]
 
-    model = EfficientNetB0(
+    model = ResNet18(
         num_classes=num_classes,
         in_channels=in_channels,
         freeze_backbone=freeze_backbone,
@@ -175,7 +196,7 @@ def get_efficientnet_model(num_classes=None, in_channels=None,
 
     # Load previously trained model if available
     if pretrained_path and os.path.exists(pretrained_path):
-        print(f"[INFO] Loading EfficientNet model: {pretrained_path}")
+        print(f"[INFO] Loading ResNet model: {pretrained_path}")
         checkpoint = torch.load(pretrained_path, map_location=config.DEVICE)
 
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
@@ -183,7 +204,7 @@ def get_efficientnet_model(num_classes=None, in_channels=None,
         else:
             model.load_state_dict(checkpoint)
 
-        print("[INFO] EfficientNet model loaded successfully.")
+        print("[INFO] ResNet model loaded successfully.")
 
     # Print parameter count
     total_params = sum(p.numel() for p in model.parameters())
@@ -192,7 +213,7 @@ def get_efficientnet_model(num_classes=None, in_channels=None,
     )
     frozen_params = total_params - trainable_params
 
-    print(f"\n[MODEL] EfficientNet-B0 (Transfer Learning)")
+    print(f"\n[MODEL] ResNet-18 (Transfer Learning)")
     print(f"  Total parameters:     {total_params:,}")
     print(f"  Trainable parameters: {trainable_params:,}")
     print(f"  Frozen parameters:    {frozen_params:,}")

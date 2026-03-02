@@ -4,7 +4,7 @@ inference.py - Tahmin Modülü (Web Entegrasyonu)
 Eğitilmiş modeli kullanarak tekil görüntülerden duygu tahmini yapar.
 Flask/FastAPI backend'e import edilerek doğrudan kullanılabilir.
 
-Kullanım:
+Usage:
     # Python'dan:
     from inference import EmotionPredictor
     predictor = EmotionPredictor()
@@ -49,8 +49,8 @@ class EmotionPredictor:
         """
         Tahmin sınıfını başlat ve modeli yükle.
 
-        Parametreler:
-            model_path (str): Model ağırlıkları dosya yolu
+        Args:
+            model_path (str): Model weights dosya yolu
                             (varsayılan: config.BEST_MODEL_PATH)
         """
         if model_path is None:
@@ -58,8 +58,8 @@ class EmotionPredictor:
 
         if not os.path.exists(model_path):
             raise FileNotFoundError(
-                f"Model dosyası bulunamadı: {model_path}\n"
-                "Önce 'python main.py --mode train' ile modeli eğitin."
+                f"Model file not found: {model_path}\n"
+                "First train the model with 'python main.py --mode train'."
             )
 
         # Modeli yükle
@@ -71,15 +71,15 @@ class EmotionPredictor:
 
     def preprocess(self, image):
         """
-        Görüntüyü model girişine uygun formata dönüştürür.
+        Görüntüyü model inputne uygun formata dönüştürür.
 
-        İşlem adımları:
+        Processing steps:
         1. Gri tonlamaya çevir (eğer renkli ise)
         2. 48x48 boyutuna yeniden boyutlandır
         3. [0, 255] → [0.0, 1.0] normalize et
         4. (1, 1, 48, 48) tensor'a dönüştür
 
-        Parametreler:
+        Args:
             image: PIL Image veya numpy array
 
         Returns:
@@ -93,13 +93,13 @@ class EmotionPredictor:
         if image.mode != 'L':
             image = image.convert('L')
 
-        # 48x48'e yeniden boyutlandır
+        # Resize to 48x48
         image = image.resize((config.IMG_SIZE, config.IMG_SIZE), Image.LANCZOS)
 
         # Numpy array'e dönüştür ve normalize et
         img_array = np.array(image, dtype=np.float32) / 255.0
 
-        # Tensor'a dönüştür: (48, 48) → (1, 1, 48, 48) → [batch, channel, H, W]
+        # Convert to tensor: (48, 48) → (1, 1, 48, 48) → [batch, channel, H, W]
         tensor = torch.FloatTensor(img_array).unsqueeze(0).unsqueeze(0)
 
         return tensor.to(config.DEVICE)
@@ -109,7 +109,7 @@ class EmotionPredictor:
         """
         Preprocessed tensor üzerinde tahmin yapar.
 
-        Parametreler:
+        Args:
             tensor (Tensor): [1, 1, 48, 48] boyutunda giriş
 
         Returns:
@@ -151,7 +151,7 @@ class EmotionPredictor:
         """
         Dosya yolundan duygu tahmini yapar.
 
-        Parametreler:
+        Args:
             image_path (str): Görüntü dosyası yolu
 
         Returns:
@@ -169,7 +169,7 @@ class EmotionPredictor:
         Numpy array'den duygu tahmini yapar.
         OpenCV gibi kütüphanelerle yakalanan frame'ler için uygundur.
 
-        Parametreler:
+        Args:
             numpy_array (np.ndarray): Görüntü array'i
 
         Returns:
@@ -183,7 +183,7 @@ class EmotionPredictor:
         Byte dizisinden duygu tahmini yapar.
         Web API'lerden gelen görüntüler için uygundur.
 
-        Parametreler:
+        Args:
             image_bytes (bytes): Görüntü byte verisi
 
         Returns:
@@ -203,7 +203,7 @@ def main():
     parser.add_argument("--image", type=str, required=True,
                         help="Tahmin yapılacak görüntü yolu")
     parser.add_argument("--model", type=str, default=None,
-                        help="Model dosya yolu (varsayılan: best_model.pth)")
+                        help="Model file path (default: best_model.pth)")
     args = parser.parse_args()
 
     predictor = EmotionPredictor(args.model)
@@ -218,7 +218,7 @@ def main():
     print(f"\n  Tüm Olasılıklar:")
     for emotion, prob in sorted(result['probabilities'].items(),
                                  key=lambda x: -x[1]):
-        bar = '█' * int(prob * 30)
+        bar = '#' * int(prob * 30)
         print(f"    {emotion:<12} {prob * 100:5.1f}% {bar}")
     print(f"{'=' * 40}\n")
 

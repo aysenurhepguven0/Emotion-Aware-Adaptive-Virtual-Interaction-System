@@ -30,7 +30,7 @@ def plot_class_distribution(distribution, save_path=None):
     """
     Her split için sınıf dağılımını bar chart olarak çizer.
 
-    Parametreler:
+    Args:
         distribution (dict): get_class_distribution() çıktısı
         save_path (str): Grafik kayıt yolu (varsayılan: outputs/plots/)
     """
@@ -75,7 +75,7 @@ def plot_sample_images(dataset, num_per_class=3, save_path=None):
     """
     Her duygu sınıfından örnek görüntüler gösterir.
 
-    Parametreler:
+    Args:
         dataset: FER2013Dataset instance
         num_per_class (int): Her sınıftan gösterilecek örnek sayısı
         save_path (str): Grafik kayıt yolu
@@ -134,7 +134,7 @@ def plot_training_history(history, save_path=None):
     """
     Eğitim sürecindeki loss ve accuracy değerlerini çizer.
 
-    Parametreler:
+    Args:
         history (dict): {
             'train_loss': [...], 'val_loss': [...],
             'train_acc': [...], 'val_acc': [...],
@@ -190,7 +190,7 @@ def plot_confusion_matrix(y_true, y_pred, save_path=None, normalize=True):
     """
     Confusion matrix'i heatmap olarak çizer.
 
-    Parametreler:
+    Args:
         y_true (array): Gerçek etiketler
         y_pred (array): Tahmin edilen etiketler
         save_path (str): Grafik kayıt yolu

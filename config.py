@@ -1,69 +1,70 @@
 """
-config.py - Proje Konfigürasyonu
-================================
-Tüm hyperparameter'lar, yollar ve sabitler burada tanımlanır.
-Farklı datasetler için kolayca genişletilebilir yapıdadır.
+config.py - Project Configuration
+==================================
+All hyperparameters, paths, and constants are defined here.
+Easily extensible for different datasets.
 """
 
 import os
 import torch
 
 # ============================================================
-# Proje Dizin Yolları
+# Project Directory Paths
 # ============================================================
-# Bu dosyanın bulunduğu dizin = proje kökü
+# Root directory = directory containing this file
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Veri yolları
+# Data paths
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-FER2013_DIR = os.path.join(DATA_DIR, "fer2013")  # Klasör tabanlı dataset
+FER2013_DIR = os.path.join(DATA_DIR, "fer2013")  # Folder-based dataset
+FERPLUS_DIR = os.path.join(DATA_DIR, "ferplus")  # FER+ dataset (folder-based)
 RAFDB_DIR = os.path.join(DATA_DIR, "raf-db")     # RAF-DB dataset
 CKPLUS_DIR = os.path.join(DATA_DIR, "ck+")       # CK+ dataset
 
-# Çıktı dizinleri
+# Output directories
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
 MODEL_DIR = os.path.join(OUTPUT_DIR, "models")
 PLOT_DIR = os.path.join(OUTPUT_DIR, "plots")
 
-# Çıktı dizinlerini oluştur
+# Create output directories
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(PLOT_DIR, exist_ok=True)
 
 # ============================================================
-# Cihaz Ayarları
+# Device Settings
 # ============================================================
-# GPU varsa GPU kullan, yoksa CPU
+# Use GPU if available, otherwise CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ============================================================
-# FER2013 Dataset Bilgileri
+# Emotion Labels (6 Ekman Emotions)
 # ============================================================
-# 6 Ekman temel duygu sınıfı (Neutral hariç)
+# 6 basic Ekman emotions (Neutral excluded)
 EMOTION_LABELS = {
-    0: "Angry",      # Kızgın
-    1: "Disgust",    # Tiksinme
-    2: "Fear",       # Korku
-    3: "Happy",      # Mutlu
-    4: "Sad",        # Üzgün
-    5: "Surprise",   # Şaşkın
+    0: "Angry",
+    1: "Disgust",
+    2: "Fear",
+    3: "Happy",
+    4: "Sad",
+    5: "Surprise",
 }
 
 NUM_CLASSES = len(EMOTION_LABELS)  # 6
-IMG_SIZE = 48  # FER2013 görüntü boyutu: 48x48 piksel
-NUM_CHANNELS = 1  # Gri tonlama
+IMG_SIZE = 48   # FER2013 image size: 48x48 pixels
+NUM_CHANNELS = 1  # Grayscale
 
-# RAF-DB etiketleri (orijinal 1-7 → standart 0-5 mapping, Neutral hariç)
+# RAF-DB labels (original 1-7 mapped to standard 0-5, Neutral excluded)
 RAFDB_LABEL_MAP = {
-    1: 5,  # Surprise  → 5
-    2: 2,  # Fear      → 2
-    3: 1,  # Disgust   → 1
-    4: 3,  # Happiness → 3
-    5: 4,  # Sadness   → 4
-    6: 0,  # Anger     → 0
-    # 7: Neutral → filtre edilecek
+    1: 5,  # Surprise  -> 5
+    2: 2,  # Fear      -> 2
+    3: 1,  # Disgust   -> 1
+    4: 3,  # Happiness -> 3
+    5: 4,  # Sadness   -> 4
+    6: 0,  # Anger     -> 0
+    # 7: Neutral -> filtered out
 }
 
-# CK+ etiketleri (8 sınıf — Contempt ek sınıf)
+# CK+ labels (8 classes -- Contempt is an extra class)
 CKPLUS_EMOTION_LABELS = {
     0: "Anger",
     1: "Contempt",
@@ -75,32 +76,46 @@ CKPLUS_EMOTION_LABELS = {
     7: "Fear"
 }
 
-# CK+ → 6 Ekman mapping (Contempt ve Neutral çıkarılır)
+# CK+ -> 6 Ekman mapping (Contempt and Neutral removed)
 CKPLUS_TO_FER_MAP = {
-    0: 0,  # Anger    → Angry
-    2: 1,  # Disgust  → Disgust
-    7: 2,  # Fear     → Fear
-    3: 3,  # Happy    → Happy
-    4: 4,  # Sadness  → Sad
-    5: 5,  # Surprise → Surprise
-    # 1: Contempt → çıkarılır
-    # 6: Neutral  → çıkarılır
+    0: 0,  # Anger    -> Angry
+    2: 1,  # Disgust  -> Disgust
+    7: 2,  # Fear     -> Fear
+    3: 3,  # Happy    -> Happy
+    4: 4,  # Sadness  -> Sad
+    5: 5,  # Surprise -> Surprise
+    # 1: Contempt -> removed
+    # 6: Neutral  -> removed
+}
+
+# FERPlus folder name -> 6 Ekman label mapping
+# Note: 'suprise' is the actual folder name in the dataset (misspelled)
+FERPLUS_FOLDER_TO_LABEL = {
+    "angry": 0,
+    "disgust": 1,
+    "fear": 2,
+    "happy": 3,
+    "sad": 4,
+    "suprise": 5,    # Misspelled in dataset
+    "surprise": 5,   # Fallback if corrected
+    # "contempt" -> removed
+    # "neutral"  -> removed
 }
 
 # ============================================================
-# Eğitim Hyperparameter'ları
+# Training Hyperparameters
 # ============================================================
-BATCH_SIZE = 64       # i5 + 4GB RAM için uygun
-EPOCHS = 50           # Maksimum epoch sayısı
-LEARNING_RATE = 1e-3  # Adam optimizer için başlangıç öğrenme oranı
+BATCH_SIZE = 64       # Suitable for i5 + 4GB RAM
+EPOCHS = 10           # Maximum number of epochs (CPU-friendly)
+LEARNING_RATE = 1e-3  # Initial learning rate for Adam optimizer
 WEIGHT_DECAY = 1e-4   # L2 regularization
 
 # Learning Rate Scheduler
-LR_PATIENCE = 5       # Kaç epoch iyileşme olmazsa LR düşür
-LR_FACTOR = 0.5       # LR'yi bu faktörle çarp
+LR_PATIENCE = 5       # Reduce LR after this many epochs without improvement
+LR_FACTOR = 0.5       # Multiply LR by this factor
 
 # Early Stopping
-EARLY_STOPPING_PATIENCE = 10  # Kaç epoch iyileşme olmazsa dur
+EARLY_STOPPING_PATIENCE = 10  # Stop training after this many epochs without improvement
 
 # ============================================================
 # Data Augmentation
@@ -113,39 +128,93 @@ AUGMENTATION = {
 }
 
 # ============================================================
-# Model Seçimi
+# Model Selection
 # ============================================================
-# Kullanılabilir modeller: "mini_xception", "efficientnet"
-MODEL_NAME = "mini_xception"  # Varsayılan model
+# Available models: "mini_xception", "efficientnet", "resnet", "hsemotion"
+MODEL_NAME = "mini_xception"  # Default model
 
-# EfficientNet Transfer Learning Ayarları
-EFFICIENTNET_FREEZE_BACKBONE = True    # Backbone'u dondur
-EFFICIENTNET_UNFREEZE_LAST_N = 2       # Son N bloğu çöz
-EFFICIENTNET_LR = 1e-4                 # Transfer Learning için düşük LR
+# Transfer Learning Settings (shared)
+TRANSFER_IMG_SIZE = 224       # Input size for pretrained models (EfficientNet, ResNet)
+TRANSFER_NUM_CHANNELS = 3     # RGB input for pretrained models
+TRANSFER_LR = 1e-4            # Lower LR for transfer learning
+TRANSFER_BATCH_SIZE = 32      # Smaller batch for larger images
+
+# EfficientNet Transfer Learning Settings
+EFFICIENTNET_FREEZE_BACKBONE = True    # Freeze backbone layers
+EFFICIENTNET_UNFREEZE_LAST_N = 2       # Unfreeze last N blocks
+EFFICIENTNET_LR = 1e-4                 # Lower LR for transfer learning
+
+# ResNet-18 Transfer Learning Settings
+RESNET_FREEZE_BACKBONE = True          # Freeze backbone layers
+RESNET_UNFREEZE_LAST_N = 2             # Unfreeze last N residual layers
+RESNET_LR = 1e-4                       # Lower LR for transfer learning
+
+# HSEmotion Settings
+HSEMOTION_MODEL_NAME = "enet_b0_8_best_afew"  # Pre-trained model name
+
+# Model-specific configurations
+MODEL_CONFIGS = {
+    "mini_xception": {
+        "img_size": IMG_SIZE,          # 48
+        "num_channels": NUM_CHANNELS,  # 1 (grayscale)
+        "batch_size": BATCH_SIZE,      # 64
+        "lr": LEARNING_RATE,           # 1e-3
+    },
+    "efficientnet": {
+        "img_size": TRANSFER_IMG_SIZE,      # 224
+        "num_channels": TRANSFER_NUM_CHANNELS, # 3 (RGB)
+        "batch_size": TRANSFER_BATCH_SIZE,  # 32
+        "lr": EFFICIENTNET_LR,              # 1e-4
+    },
+    "resnet": {
+        "img_size": TRANSFER_IMG_SIZE,      # 224
+        "num_channels": TRANSFER_NUM_CHANNELS, # 3 (RGB)
+        "batch_size": TRANSFER_BATCH_SIZE,  # 32
+        "lr": RESNET_LR,                    # 1e-4
+    },
+    "hsemotion": {
+        "img_size": 260,                    # HSEmotion default input
+        "num_channels": 3,                  # RGB
+        "batch_size": TRANSFER_BATCH_SIZE,  # 32
+        "lr": 5e-5,                         # Very low LR for fine-tuning
+    },
+}
 
 # ============================================================
-# Model Kaydetme
+# Model Saving
 # ============================================================
 BEST_MODEL_PATH = os.path.join(MODEL_DIR, "best_model.pth")
 LAST_MODEL_PATH = os.path.join(MODEL_DIR, "last_model.pth")
 
-# Model-spesifik yollar
+# Model-specific paths
 BEST_MODEL_PATHS = {
     "mini_xception": os.path.join(MODEL_DIR, "best_mini_xception.pth"),
     "efficientnet": os.path.join(MODEL_DIR, "best_efficientnet.pth"),
+    "resnet": os.path.join(MODEL_DIR, "best_resnet.pth"),
+    "hsemotion": os.path.join(MODEL_DIR, "best_hsemotion.pth"),
 }
 LAST_MODEL_PATHS = {
     "mini_xception": os.path.join(MODEL_DIR, "last_mini_xception.pth"),
     "efficientnet": os.path.join(MODEL_DIR, "last_efficientnet.pth"),
+    "resnet": os.path.join(MODEL_DIR, "last_resnet.pth"),
+    "hsemotion": os.path.join(MODEL_DIR, "last_hsemotion.pth"),
 }
 
 # ============================================================
-# Dataset Yapılandırması (Modüler: farklı datasetler için)
+# Dataset Configuration (Modular: for different datasets)
 # ============================================================
 DATASET_CONFIGS = {
     "fer2013": {
         "name": "FER2013",
         "data_dir": FER2013_DIR,
+        "img_size": 48,
+        "num_channels": 1,
+        "num_classes": 6,
+        "labels": EMOTION_LABELS
+    },
+    "ferplus": {
+        "name": "FER+",
+        "data_dir": FERPLUS_DIR,
         "img_size": 48,
         "num_channels": 1,
         "num_classes": 6,

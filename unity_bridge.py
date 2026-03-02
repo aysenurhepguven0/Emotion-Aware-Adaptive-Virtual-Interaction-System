@@ -1,5 +1,5 @@
 """
-unity_bridge.py - Python ↔ Unity TCP Köprüsü
+unity_bridge.py - Python <-> Unity TCP Köprüsü
 ==============================================
 Webcam'den duygu tanıma yaparak sonuçları TCP üzerinden
 Unity'ye gerçek zamanlı gönderir.
@@ -131,13 +131,13 @@ class UnityEmotionBridge:
     """
 
     EMOTION_COLORS = {
-        0: (0, 0, 255),       # Angry    → Kırmızı
-        1: (0, 128, 0),       # Disgust  → Koyu Yeşil
-        2: (128, 0, 128),     # Fear     → Mor
-        3: (0, 255, 255),     # Happy    → Sarı
-        4: (255, 0, 0),       # Sad      → Mavi
-        5: (0, 165, 255),     # Surprise → Turuncu
-        6: (200, 200, 200),   # Neutral  → Gri
+        0: (0, 0, 255),       # Angry    -> Kırmızı
+        1: (0, 128, 0),       # Disgust  -> Koyu Yeşil
+        2: (128, 0, 128),     # Fear     -> Mor
+        3: (0, 255, 255),     # Happy    -> Sarı
+        4: (255, 0, 0),       # Sad      -> Mavi
+        5: (0, 165, 255),     # Surprise -> Turuncu
+        6: (200, 200, 200),   # Neutral  -> Gri
     }
 
     def __init__(self, model_path=None, port=5555):
@@ -204,7 +204,7 @@ class UnityEmotionBridge:
 
     def run(self, camera_id=0, show_preview=True):
         """
-        Ana döngü: Webcam → Duygu Tahmini → Unity'ye Gönder
+        Ana döngü: Webcam -> Duygu Tahmini -> Unity'ye Gönder
 
         Parametreler:
             camera_id (int): Kamera ID'si
@@ -234,7 +234,7 @@ class UnityEmotionBridge:
         print(f"  TCP Port : {self.server.port}")
         print(f"  Kamera   : {camera_id}")
         print(f"  Önizleme : {'Açık' if show_preview else 'Kapalı'}")
-        print("  Kontrol  : q / ESC → Çıkış")
+        print("  Kontrol  : q / ESC -> Çıkış")
         print("=" * 55)
 
         try:
@@ -339,7 +339,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Python → Unity Duygu Tanıma Köprüsü"
+        description="Python -> Unity Duygu Tanıma Köprüsü"
     )
     parser.add_argument("--port", type=int, default=5555,
                         help="TCP port (varsayılan: 5555)")

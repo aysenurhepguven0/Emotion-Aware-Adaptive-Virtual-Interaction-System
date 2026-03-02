@@ -1,24 +1,23 @@
 """
-data/dataset.py - FER2013 Dataset Yükleme ve Hazırlama
-======================================================
-FER2013 görüntü klasörlerinden veri okuma, PyTorch Dataset sınıfı,
-DataLoader oluşturma ve veri dağılımı analizi.
+data/dataset.py - Dataset Loading and Preparation
+===================================================
+Reads image data from FER2013 folder structure, RAF-DB and CK+ datasets.
+Creates PyTorch Dataset classes and DataLoaders.
 
-FER2013 Klasör Yapısı (Kaggle image format):
+FER2013 Folder Structure (Kaggle image format):
     fer2013/
-    ├── train/
-    │   ├── angry/
-    │   ├── disgust/
-    │   ├── fear/
-    │   ├── happy/
-    │   ├── neutral/
-    │   ├── sad/
-    │   └── surprise/
-    └── test/
-        ├── angry/
-        ├── ...
+    +-- train/
+    |   +-- angry/
+    |   +-- disgust/
+    |   +-- fear/
+    |   +-- happy/
+    |   +-- sad/
+    |   +-- surprise/
+    +-- test/
+        +-- angry/
+        +-- ...
 
-Her alt klasörde 48x48 gri tonlamalı JPG görüntüler bulunur.
+Each subfolder contains 48x48 grayscale JPG images.
 """
 
 import os
@@ -34,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 
-# Klasör adlarından duygu etiketlerine mapping (6 Ekman, Neutral hariç)
+# Folder name to label mapping (6 Ekman, Neutral excluded)
 FOLDER_TO_LABEL = {
     "angry": 0,
     "disgust": 1,
@@ -42,48 +41,52 @@ FOLDER_TO_LABEL = {
     "happy": 3,
     "sad": 4,
     "surprise": 5,
-    # "neutral" çıkarıldı — 6 Ekman duygusuna odaklanıyoruz
+    # "neutral" removed -- focusing on 6 Ekman emotions
 }
 
 
 class FER2013Dataset(Dataset):
     """
-    FER2013 veri seti için PyTorch Dataset sınıfı (klasör tabanlı).
+    PyTorch Dataset class for FER2013 (folder-based).
 
-    Parametreler:
-        root_dir (str): Görüntü kök dizini (örn: data/fer2013/train)
-        transform (callable, optional): Görüntüye uygulanacak dönüşümler
+    Args:
+        root_dir (str): Image root directory (e.g., data/fer2013/train)
+        transform (callable, optional): Transforms to apply to images
+        img_size (int): Target image size (default: 48)
+        num_channels (int): Number of channels (1=grayscale, 3=RGB)
     """
 
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None, img_size=None, num_channels=None):
         self.root_dir = root_dir
         self.transform = transform
+        self.img_size = img_size or config.IMG_SIZE
+        self.num_channels = num_channels or config.NUM_CHANNELS
 
-        # Tüm görüntü yollarını ve etiketlerini topla
+        # Collect all image paths and labels
         self.image_paths = []
         self.labels = []
 
         if not os.path.exists(root_dir):
             raise FileNotFoundError(
-                f"Veri dizini bulunamadı: {root_dir}\n"
-                f"FER2013 datasetini data/fer2013/ altına yerleştirin."
+                f"Data directory not found: {root_dir}\n"
+                f"Please place FER2013 dataset under data/fer2013/."
             )
 
-        # Her duygu klasörünü tara
+        # Scan each emotion folder
         for folder_name in sorted(os.listdir(root_dir)):
             folder_path = os.path.join(root_dir, folder_name)
             if not os.path.isdir(folder_path):
                 continue
 
-            # Klasör adını etikete çevir
+            # Map folder name to label
             label_name = folder_name.lower()
             if label_name not in FOLDER_TO_LABEL:
-                print(f"[UYARI] Bilinmeyen klasör atlandı: {folder_name}")
+                print(f"[WARNING] Unknown folder skipped: {folder_name}")
                 continue
 
             label = FOLDER_TO_LABEL[label_name]
 
-            # Klasördeki tüm görüntüleri topla
+            # Collect all images in the folder
             image_files = [
                 f for f in os.listdir(folder_path)
                 if f.lower().endswith(('.jpg', '.jpeg', '.png'))
@@ -94,43 +97,52 @@ class FER2013Dataset(Dataset):
                 self.labels.append(label)
 
         self.labels = np.array(self.labels, dtype=np.int64)
-        print(f"[INFO] {root_dir}: {len(self.image_paths)} görüntü yüklendi "
-              f"({len(set(self.labels))} sınıf)")
+        print(f"[INFO] {root_dir}: {len(self.image_paths)} images loaded "
+              f"({len(set(self.labels))} classes)")
 
     def __len__(self):
-        """Dataset'teki toplam örnek sayısı."""
+        """Total number of samples in the dataset."""
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         """
-        Belirtilen index'teki görüntü ve etiketi döndürür.
+        Returns the image and label at the specified index.
 
         Returns:
-            image (Tensor): [1, 48, 48] boyutunda normalize edilmiş görüntü
-            label (int): 0-5 arası duygu etiketi (6 Ekman)
+            image (Tensor): Normalized image of shape [1, 48, 48]
+            label (int): Emotion label in range 0-5 (6 Ekman)
         """
-        # Görüntüyü oku
+        # Read image
         img_path = self.image_paths[idx]
         image = Image.open(img_path)
 
-        # Gri tonlamaya çevir (zaten gri olan JPG'ler için de güvenli)
-        if image.mode != 'L':
-            image = image.convert('L')
+        # Convert to target color mode
+        if self.num_channels == 3:
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+        else:
+            if image.mode != 'L':
+                image = image.convert('L')
 
-        # 48x48'e boyutlandır (normalde zaten 48x48)
-        if image.size != (config.IMG_SIZE, config.IMG_SIZE):
-            image = image.resize((config.IMG_SIZE, config.IMG_SIZE), Image.LANCZOS)
+        # Resize to target size
+        if image.size != (self.img_size, self.img_size):
+            image = image.resize(
+                (self.img_size, self.img_size), Image.LANCZOS
+            )
 
-        # Numpy array'e dönüştür ve normalize et [0, 255] → [0.0, 1.0]
+        # Convert to numpy array and normalize [0, 255] -> [0.0, 1.0]
         img_array = np.array(image, dtype=np.float32) / 255.0
 
-        # (48, 48) → (1, 48, 48) kanal boyutu ekle
-        img_array = np.expand_dims(img_array, axis=0)
+        # Add channel dimension
+        if self.num_channels == 1:
+            img_array = np.expand_dims(img_array, axis=0)  # (1, H, W)
+        else:
+            img_array = np.transpose(img_array, (2, 0, 1))  # (3, H, W)
 
-        # Tensor'a dönüştür
+        # Convert to tensor
         tensor = torch.FloatTensor(img_array)
 
-        # Augmentation uygula (varsa)
+        # Apply augmentation if available
         if self.transform:
             tensor = self.transform(tensor)
 
@@ -140,7 +152,7 @@ class FER2013Dataset(Dataset):
 
     def get_sample_images(self, num_per_class=3):
         """
-        Her sınıftan örnek görüntüler döndürür (NumPy array olarak).
+        Returns sample images from each class as NumPy arrays.
 
         Returns:
             dict: {label_id: [numpy_array, ...], ...}
@@ -167,21 +179,24 @@ class FER2013Dataset(Dataset):
         return samples
 
 
-def get_transforms(split="train"):
+def get_transforms(split="train", model_name="mini_xception"):
     """
-    Split'e göre uygun veri dönüşümlerini döndürür.
+    Returns appropriate data transforms for the given split.
 
-    - train: Data augmentation (flip, rotation, affine, erasing)
-    - test/val: Augmentation yok
+    For transfer learning models (efficientnet, resnet, hsemotion),
+    adds ImageNet normalization.
 
-    Parametreler:
-        split (str): 'train' veya 'test'
+    Args:
+        split (str): 'train' or 'test'
+        model_name (str): Model name for model-specific transforms
 
     Returns:
-        transforms.Compose veya None
+        transforms.Compose or None
     """
+    is_transfer = model_name in ("efficientnet", "resnet", "hsemotion")
+
     if split == "train":
-        return transforms.Compose([
+        aug_list = [
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomRotation(
                 degrees=config.AUGMENTATION["rotation_degrees"]
@@ -194,43 +209,70 @@ def get_transforms(split="train"):
                 p=config.AUGMENTATION["random_erasing_prob"],
                 scale=(0.02, 0.1)
             ),
-        ])
+        ]
+        # Add ImageNet normalization for transfer learning models
+        if is_transfer:
+            aug_list.append(
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]
+                )
+            )
+        return transforms.Compose(aug_list)
     else:
+        # Test/Val: only normalization for transfer learning
+        if is_transfer:
+            return transforms.Compose([
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]
+                )
+            ])
         return None
 
 
-def get_dataloaders(data_dir=None, batch_size=None, val_split=0.15):
+def get_dataloaders(data_dir=None, batch_size=None, val_split=0.15,
+                    model_name="mini_xception"):
     """
-    Train, Validation ve Test DataLoader'larını oluşturur.
+    Creates Train, Validation, and Test DataLoaders.
 
-    Klasör yapısındaki FER2013:
-    - train/  →  Eğitim + Doğrulama (%85 / %15 random split)
-    - test/   →  Test seti
+    FER2013 folder structure:
+    - train/  ->  Training + Validation (85% / 15% random split)
+    - test/   ->  Test set
 
-    Parametreler:
-        data_dir (str): FER2013 kök dizini (varsayılan: config'den)
-        batch_size (int): Batch boyutu
-        val_split (float): Eğitim setinden doğrulamaya ayrılacak oran
+    Args:
+        data_dir (str): FER2013 root directory (default: from config)
+        batch_size (int): Batch size
+        val_split (float): Fraction of training set for validation
+        model_name (str): Model name for model-specific settings
 
     Returns:
         dict: {'train': DataLoader, 'val': DataLoader, 'test': DataLoader}
     """
     if data_dir is None:
         data_dir = config.FER2013_DIR
+
+    # Get model-specific settings
+    model_cfg = config.MODEL_CONFIGS.get(model_name, config.MODEL_CONFIGS["mini_xception"])
     if batch_size is None:
-        batch_size = config.BATCH_SIZE
+        batch_size = model_cfg["batch_size"]
+    img_size = model_cfg["img_size"]
+    num_channels = model_cfg["num_channels"]
 
     train_dir = os.path.join(data_dir, "train")
     test_dir = os.path.join(data_dir, "test")
 
     print("\n" + "=" * 60)
-    print("  FER2013 Dataset Yükleniyor (Klasör Formatı)")
+    print(f"  Loading FER2013 Dataset (img={img_size}x{img_size}, ch={num_channels})")
     print("=" * 60)
 
-    # Train seti — augmentation ile
-    full_train_dataset = FER2013Dataset(train_dir, transform=None)
+    # Training set -- without augmentation initially
+    full_train_dataset = FER2013Dataset(
+        train_dir, transform=None,
+        img_size=img_size, num_channels=num_channels
+    )
 
-    # Train setini Train + Validation olarak böl
+    # Split training set into Train + Validation
     total_train = len(full_train_dataset)
     val_size = int(total_train * val_split)
     train_size = total_train - val_size
@@ -238,24 +280,26 @@ def get_dataloaders(data_dir=None, batch_size=None, val_split=0.15):
     train_subset, val_subset = random_split(
         full_train_dataset,
         [train_size, val_size],
-        generator=torch.Generator().manual_seed(42)  # Tekrarlanabilirlik
+        generator=torch.Generator().manual_seed(42)  # Reproducibility
     )
 
-    # Augmentation: sadece train subset'e uygulanır
-    # (random_split sonrası transform eklemek için wrapper kullanıyoruz)
-    train_dataset = TransformSubset(train_subset, get_transforms("train"))
-    val_dataset = TransformSubset(val_subset, None)
+    # Augmentation: applied only to training subset
+    train_dataset = TransformSubset(train_subset, get_transforms("train", model_name))
+    val_dataset = TransformSubset(val_subset, get_transforms("test", model_name))
 
-    # Test seti — augmentation yok
-    test_dataset = FER2013Dataset(test_dir, transform=None)
+    # Test set -- no augmentation
+    test_dataset = FER2013Dataset(
+        test_dir, transform=get_transforms("test", model_name),
+        img_size=img_size, num_channels=num_channels
+    )
 
-    # DataLoader'lar
+    # DataLoaders
     dataloaders = {
         "train": DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
-            num_workers=0,       # Windows uyumluluğu
+            num_workers=0,       # Windows compatibility
             pin_memory=torch.cuda.is_available()
         ),
         "val": DataLoader(
@@ -274,13 +318,13 @@ def get_dataloaders(data_dir=None, batch_size=None, val_split=0.15):
         ),
     }
 
-    # Özet bilgi
-    print(f"\n[INFO] Dataset boyutları:")
-    print(f"  Train:      {len(train_dataset):,} örnek")
-    print(f"  Validation: {len(val_dataset):,} örnek")
-    print(f"  Test:       {len(test_dataset):,} örnek")
+    # Summary
+    print(f"\n[INFO] Dataset sizes:")
+    print(f"  Train:      {len(train_dataset):,} samples")
+    print(f"  Validation: {len(val_dataset):,} samples")
+    print(f"  Test:       {len(test_dataset):,} samples")
     print(f"  Batch:      {batch_size}")
-    print(f"  Cihaz:      {config.DEVICE}")
+    print(f"  Device:     {config.DEVICE}")
     print("=" * 60 + "\n")
 
     return dataloaders
@@ -288,8 +332,8 @@ def get_dataloaders(data_dir=None, batch_size=None, val_split=0.15):
 
 class TransformSubset:
     """
-    random_split sonrası subset'e transform uygulamak için wrapper.
-    PyTorch'un Subset'i doğrudan transform desteklemediği için gerekli.
+    Wrapper to apply transforms after random_split.
+    Necessary because PyTorch's Subset doesn't support transforms directly.
     """
 
     def __init__(self, subset, transform=None):
@@ -308,7 +352,7 @@ class TransformSubset:
 
 def get_class_distribution(data_dir=None):
     """
-    Her split için sınıf dağılımını hesaplar.
+    Computes class distribution for each split.
 
     Returns:
         dict: {'train': {0: count, ...}, 'test': {0: count, ...}}
@@ -321,7 +365,7 @@ def get_class_distribution(data_dir=None):
     for split in ["train", "test"]:
         split_dir = os.path.join(data_dir, split)
         if not os.path.exists(split_dir):
-            print(f"[UYARI] {split_dir} bulunamadı, atlanıyor.")
+            print(f"[WARNING] {split_dir} not found, skipping.")
             continue
 
         counts = {}
@@ -343,13 +387,13 @@ def get_class_distribution(data_dir=None):
 
         distribution[split] = counts
 
-    # Dağılımı yazdır
+    # Print distribution
     print("\n" + "=" * 60)
-    print("  Sınıf Dağılımı (Class Distribution)")
+    print("  Class Distribution")
     print("=" * 60)
 
     splits = list(distribution.keys())
-    header = f"{'Sınıf':<12}" + "".join(f"{s:>10}" for s in splits)
+    header = f"{'Class':<12}" + "".join(f"{s:>10}" for s in splits)
     print(f"\n{header}")
     print("-" * (12 + 10 * len(splits)))
 
@@ -363,8 +407,8 @@ def get_class_distribution(data_dir=None):
 
     print("-" * (12 + 10 * len(splits)))
 
-    # Toplam
-    row = f"{'TOPLAM':<12}"
+    # Total
+    row = f"{'TOTAL':<12}"
     for split in splits:
         total = sum(distribution[split].values())
         row += f"{total:>10,}"
@@ -376,11 +420,11 @@ def get_class_distribution(data_dir=None):
 
 def get_class_weights(data_dir=None):
     """
-    Dengesiz sınıf dağılımını dengelemek için sınıf ağırlıkları hesaplar.
-    Az örnekli sınıflar (örn. Disgust) daha yüksek ağırlık alır.
+    Computes class weights to handle imbalanced class distribution.
+    Minority classes (e.g., Disgust) receive higher weights.
 
     Returns:
-        torch.Tensor: Her sınıf için ağırlık tensörü
+        torch.Tensor: Weight tensor for each class
     """
     if data_dir is None:
         data_dir = config.FER2013_DIR
@@ -407,21 +451,21 @@ def get_class_weights(data_dir=None):
     total = sum(counts.values())
     num_classes_present = len(counts)
 
-    # Ters frekans ağırlıklandırma
+    # Inverse frequency weighting
     weights = []
     for i in range(config.NUM_CLASSES):
         if i in counts and counts[i] > 0:
             w = total / (num_classes_present * counts[i])
         else:
-            w = 1.0  # Sınıf yoksa varsayılan ağırlık
+            w = 1.0  # Default weight if class is missing
         weights.append(w)
 
     weights_tensor = torch.FloatTensor(weights)
 
-    print("[INFO] Sınıf ağırlıkları (class weights):")
+    print("[INFO] Class weights:")
     for i, w in enumerate(weights):
         count = counts.get(i, 0)
-        print(f"  {config.EMOTION_LABELS[i]:<12}: {w:.4f}  ({count:,} örnek)")
+        print(f"  {config.EMOTION_LABELS[i]:<12}: {w:.4f}  ({count:,} samples)")
 
     return weights_tensor
 
@@ -431,46 +475,51 @@ def get_class_weights(data_dir=None):
 # ================================================================
 class RAFDBDataset(Dataset):
     """
-    RAF-DB veri seti için PyTorch Dataset sınıfı.
+    PyTorch Dataset class for RAF-DB.
 
-    RAF-DB yapısı:
+    RAF-DB structure:
         raf-db/
-        ├── DATASET/
-        │   ├── train/
-        │   │   ├── 1/   (Surprise)
-        │   │   ├── 2/   (Fear)
-        │   │   ├── ...
-        │   │   └── 7/   (Neutral)
-        │   └── test/
-        │       ├── 1/ ... 7/
-        ├── train_labels.csv
-        └── test_labels.csv
+        +-- DATASET/
+        |   +-- train/
+        |   |   +-- 1/   (Surprise)
+        |   |   +-- 2/   (Fear)
+        |   |   +-- ...
+        |   |   +-- 7/   (Neutral) -> filtered out
+        |   +-- test/
+        |       +-- 1/ ... 7/
+        +-- train_labels.csv
+        +-- test_labels.csv
 
-    Görüntüler 100x100 RGB → 48x48 grayscale'e dönüştürülür.
-    Label mapping: RAF-DB (1-7) → FER2013 standart (0-6)
+    Images: 100x100 RGB -> converted to 48x48 grayscale.
+    Label mapping: RAF-DB (1-7) -> standard (0-5), Neutral excluded.
     """
 
-    def __init__(self, root_dir, split="train", transform=None):
+    def __init__(self, root_dir, split="train", transform=None,
+                 img_size=None, num_channels=None):
         """
-        Parametreler:
-            root_dir (str): RAF-DB kök dizini (data/raf-db)
-            split (str): 'train' veya 'test'
-            transform (callable): Görüntü dönüşümleri
+        Args:
+            root_dir (str): RAF-DB root directory (data/raf-db)
+            split (str): 'train' or 'test'
+            transform (callable): Image transforms
+            img_size (int): Target image size
+            num_channels (int): Number of channels (1=grayscale, 3=RGB)
         """
         self.root_dir = root_dir
         self.split = split
         self.transform = transform
+        self.img_size = img_size or config.IMG_SIZE
+        self.num_channels = num_channels or config.NUM_CHANNELS
         self.image_paths = []
         self.labels = []
 
         img_dir = os.path.join(root_dir, "DATASET", split)
         if not os.path.exists(img_dir):
             raise FileNotFoundError(
-                f"RAF-DB dizini bulunamadı: {img_dir}\n"
-                f"RAF-DB datasetini data/raf-db/ altına yerleştirin."
+                f"RAF-DB directory not found: {img_dir}\n"
+                f"Please place RAF-DB dataset under data/raf-db/."
             )
 
-        # Klasör bazlı okuma (1-7 numaralı klasörler)
+        # Folder-based reading (numbered folders 1-7)
         for class_folder in sorted(os.listdir(img_dir)):
             class_path = os.path.join(img_dir, class_folder)
             if not os.path.isdir(class_path):
@@ -482,39 +531,50 @@ class RAFDBDataset(Dataset):
                 continue
 
             if raf_label not in config.RAFDB_LABEL_MAP:
-                print(f"[UYARI] Bilinmeyen RAF-DB etiketi: {raf_label}")
+                # Neutral (label 7) is skipped here
                 continue
 
             fer_label = config.RAFDB_LABEL_MAP[raf_label]
 
             for img_file in os.listdir(class_path):
                 if img_file.lower().endswith(('.jpg', '.jpeg', '.png')):
-                    self.image_paths.append(os.path.join(class_path, img_file))
+                    self.image_paths.append(
+                        os.path.join(class_path, img_file)
+                    )
                     self.labels.append(fer_label)
 
         self.labels = np.array(self.labels, dtype=np.int64)
-        print(f"[INFO] RAF-DB {split}: {len(self.image_paths)} görüntü yüklendi "
-              f"({len(set(self.labels))} sınıf)")
+        print(f"[INFO] RAF-DB {split}: {len(self.image_paths)} images loaded "
+              f"({len(set(self.labels))} classes)")
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        """100x100 RGB → 48x48 grayscale tensor döndürür."""
+        """Returns image tensor with configurable size and channels."""
         img_path = self.image_paths[idx]
         image = Image.open(img_path)
 
-        # RGB → Grayscale
-        if image.mode != 'L':
-            image = image.convert('L')
+        # Convert to target color mode
+        if self.num_channels == 3:
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+        else:
+            if image.mode != 'L':
+                image = image.convert('L')
 
-        # 48x48'e resize
-        if image.size != (config.IMG_SIZE, config.IMG_SIZE):
-            image = image.resize((config.IMG_SIZE, config.IMG_SIZE), Image.LANCZOS)
+        # Resize to target size
+        if image.size != (self.img_size, self.img_size):
+            image = image.resize(
+                (self.img_size, self.img_size), Image.LANCZOS
+            )
 
-        # Normalize et
+        # Normalize
         img_array = np.array(image, dtype=np.float32) / 255.0
-        img_array = np.expand_dims(img_array, axis=0)  # (1, 48, 48)
+        if self.num_channels == 1:
+            img_array = np.expand_dims(img_array, axis=0)  # (1, H, W)
+        else:
+            img_array = np.transpose(img_array, (2, 0, 1))  # (3, H, W)
 
         tensor = torch.FloatTensor(img_array)
 
@@ -530,39 +590,44 @@ class RAFDBDataset(Dataset):
 # ================================================================
 class CKPlusDataset(Dataset):
     """
-    CK+ veri seti için PyTorch Dataset sınıfı.
+    PyTorch Dataset class for CK+.
 
-    CSV formatı (FER2013 benzeri):
+    CSV format (FER2013-like):
         emotion,pixels,Usage
         6, 36 39 35 ..., Training
 
-    - Contempt sınıfı (label=1) ve Neutral sınıfı (label=6) çıkarılır.
-    - CK+ etiketleri 6 Ekman etiketlerine dönüştürülür.
-    - Piksel verisi 48x48 grayscale.
+    - Contempt (label=1) and Neutral (label=6) are removed.
+    - CK+ labels are mapped to 6 Ekman labels.
+    - Pixel data is 48x48 grayscale.
     """
 
-    def __init__(self, csv_path, split="train", transform=None):
+    def __init__(self, csv_path, split="train", transform=None,
+                 img_size=None, num_channels=None):
         """
-        Parametreler:
-            csv_path (str): CK+ CSV dosya yolu
-            split (str): 'train' veya 'test' (Usage sütunundan filtrelenir)
-            transform (callable): Görüntü dönüşümleri
+        Args:
+            csv_path (str): CK+ CSV file path
+            split (str): 'train' or 'test' (filtered by Usage column)
+            transform (callable): Image transforms
+            img_size (int): Target image size
+            num_channels (int): Number of channels
         """
         import pandas as pd
 
         self.transform = transform
+        self.img_size = img_size or config.IMG_SIZE
+        self.num_channels = num_channels or config.NUM_CHANNELS
         self.images = []
         self.labels = []
 
         if not os.path.exists(csv_path):
             raise FileNotFoundError(
-                f"CK+ CSV bulunamadı: {csv_path}\n"
-                f"ckextended.csv dosyasını data/ck+/ altına yerleştirin."
+                f"CK+ CSV not found: {csv_path}\n"
+                f"Please place ckextended.csv under data/ck+/."
             )
 
         df = pd.read_csv(csv_path)
 
-        # Usage sütununa göre filtrele
+        # Filter by Usage column
         usage_map = {"train": "Training", "test": "Testing",
                       "val": "PublicTest"}
         usage_filter = usage_map.get(split, "Training")
@@ -570,19 +635,19 @@ class CKPlusDataset(Dataset):
         if "Usage" in df.columns:
             df = df[df["Usage"] == usage_filter]
 
-        skipped_contempt = 0
+        skipped = 0
 
         for _, row in df.iterrows():
             ck_emotion = int(row["emotion"])
 
-            # Contempt sınıfını atla
+            # Skip Contempt and Neutral
             if ck_emotion not in config.CKPLUS_TO_FER_MAP:
-                skipped_contempt += 1
+                skipped += 1
                 continue
 
             fer_label = config.CKPLUS_TO_FER_MAP[ck_emotion]
 
-            # Piksel verisini 48x48 numpy array'e çevir
+            # Convert pixel string to 48x48 numpy array
             pixels = np.array(
                 row["pixels"].split(), dtype=np.float32
             ).reshape(config.IMG_SIZE, config.IMG_SIZE)
@@ -593,19 +658,30 @@ class CKPlusDataset(Dataset):
         self.images = np.array(self.images, dtype=np.float32)
         self.labels = np.array(self.labels, dtype=np.int64)
 
-        info = f"[INFO] CK+ {split}: {len(self.images)} görüntü yüklendi "
-        info += f"({len(set(self.labels))} sınıf)"
-        if skipped_contempt > 0:
-            info += f" [{skipped_contempt} Contempt/Neutral örneği atlandı]"
+        info = f"[INFO] CK+ {split}: {len(self.images)} images loaded "
+        info += f"({len(set(self.labels))} classes)"
+        if skipped > 0:
+            info += f" [{skipped} Contempt/Neutral samples skipped]"
         print(info)
 
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, idx):
-        """48x48 grayscale tensor döndürür."""
+        """Returns image tensor with configurable size and channels."""
         image = self.images[idx] / 255.0  # Normalize
-        image = np.expand_dims(image, axis=0)  # (1, 48, 48)
+
+        # Resize if needed
+        if image.shape[0] != self.img_size or image.shape[1] != self.img_size:
+            pil_img = Image.fromarray((image * 255).astype(np.uint8))
+            pil_img = pil_img.resize((self.img_size, self.img_size), Image.LANCZOS)
+            image = np.array(pil_img, dtype=np.float32) / 255.0
+
+        if self.num_channels == 3:
+            # Grayscale -> RGB by repeating channels
+            image = np.stack([image] * 3, axis=0)  # (3, H, W)
+        else:
+            image = np.expand_dims(image, axis=0)  # (1, H, W)
 
         tensor = torch.FloatTensor(image)
 
@@ -617,52 +693,191 @@ class CKPlusDataset(Dataset):
 
 
 # ================================================================
-# Fabrika Fonksiyonu — Dataset'e göre DataLoader oluştur
+# FERPlus Dataset (Folder-based, like FER2013 but with different labels)
 # ================================================================
-def get_dataloaders_for_dataset(dataset_name, batch_size=None, val_split=0.15):
+class FERPlusDataset(Dataset):
     """
-    Belirtilen dataset için Train/Val/Test DataLoader'ları oluşturur.
+    PyTorch Dataset class for FER+ (folder-based).
 
-    Parametreler:
-        dataset_name (str): 'fer2013', 'rafdb', veya 'ckplus'
-        batch_size (int): Batch boyutu
-        val_split (float): Eğitim setinden validation'a ayrılacak oran
+    FER+ structure:
+        ferplus/
+        +-- train/
+        |   +-- angry/  disgust/  fear/  happy/  sad/  suprise/
+        |   +-- contempt/  neutral/  (filtered out)
+        +-- validation/
+        +-- test/
+
+    Labels: contempt and neutral are excluded for 6 Ekman emotions.
+    Note: 'suprise' folder is misspelled in the dataset.
+    """
+
+    def __init__(self, root_dir, transform=None, img_size=None, num_channels=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.img_size = img_size or config.IMG_SIZE
+        self.num_channels = num_channels or config.NUM_CHANNELS
+        self.image_paths = []
+        self.labels = []
+
+        if not os.path.exists(root_dir):
+            raise FileNotFoundError(
+                f"FER+ directory not found: {root_dir}\n"
+                f"Please place FER+ dataset under data/ferplus/."
+            )
+
+        for folder_name in sorted(os.listdir(root_dir)):
+            folder_path = os.path.join(root_dir, folder_name)
+            if not os.path.isdir(folder_path):
+                continue
+
+            label_name = folder_name.lower()
+            if label_name not in config.FERPLUS_FOLDER_TO_LABEL:
+                continue  # Skip contempt, neutral
+
+            label = config.FERPLUS_FOLDER_TO_LABEL[label_name]
+
+            image_files = [
+                f for f in os.listdir(folder_path)
+                if f.lower().endswith(('.jpg', '.jpeg', '.png'))
+            ]
+
+            for img_file in image_files:
+                self.image_paths.append(os.path.join(folder_path, img_file))
+                self.labels.append(label)
+
+        self.labels = np.array(self.labels, dtype=np.int64)
+        print(f"[INFO] {root_dir}: {len(self.image_paths)} images loaded "
+              f"({len(set(self.labels))} classes)")
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.image_paths[idx]
+        image = Image.open(img_path)
+
+        if self.num_channels == 3:
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+        else:
+            if image.mode != 'L':
+                image = image.convert('L')
+
+        if image.size != (self.img_size, self.img_size):
+            image = image.resize(
+                (self.img_size, self.img_size), Image.LANCZOS
+            )
+
+        img_array = np.array(image, dtype=np.float32) / 255.0
+        if self.num_channels == 1:
+            img_array = np.expand_dims(img_array, axis=0)
+        else:
+            img_array = np.transpose(img_array, (2, 0, 1))
+
+        tensor = torch.FloatTensor(img_array)
+        if self.transform:
+            tensor = self.transform(tensor)
+
+        label = torch.LongTensor([self.labels[idx]]).squeeze()
+        return tensor, label
+
+
+# ================================================================
+# Factory Function -- Create DataLoaders by dataset name
+# ================================================================
+def get_dataloaders_for_dataset(dataset_name, batch_size=None, val_split=0.15,
+                                model_name="mini_xception"):
+    """
+    Creates Train/Val/Test DataLoaders for the specified dataset.
+
+    Args:
+        dataset_name (str): 'fer2013', 'ferplus', 'rafdb', or 'ckplus'
+        batch_size (int): Batch size
+        val_split (float): Fraction of training set for validation
+        model_name (str): Model name for model-specific settings
 
     Returns:
         dict: {'train': DataLoader, 'val': DataLoader, 'test': DataLoader}
     """
+    # Get model-specific batch size if not specified
     if batch_size is None:
-        batch_size = config.BATCH_SIZE
+        model_cfg = config.MODEL_CONFIGS.get(model_name, config.MODEL_CONFIGS["mini_xception"])
+        batch_size = model_cfg["batch_size"]
 
     dataset_name = dataset_name.lower()
 
     if dataset_name == "fer2013":
-        return get_dataloaders(batch_size=batch_size, val_split=val_split)
+        return get_dataloaders(batch_size=batch_size, val_split=val_split,
+                              model_name=model_name)
+
+    elif dataset_name == "ferplus":
+        return _get_ferplus_dataloaders(batch_size, model_name)
 
     elif dataset_name == "rafdb":
-        return _get_rafdb_dataloaders(batch_size, val_split)
+        return _get_rafdb_dataloaders(batch_size, val_split, model_name)
 
     elif dataset_name == "ckplus":
-        return _get_ckplus_dataloaders(batch_size, val_split)
+        return _get_ckplus_dataloaders(batch_size, val_split, model_name)
 
     else:
         available = ", ".join(config.DATASET_CONFIGS.keys())
         raise ValueError(
-            f"Bilinmeyen dataset: '{dataset_name}'. "
-            f"Mevcut datasetler: {available}"
+            f"Unknown dataset: '{dataset_name}'. "
+            f"Available datasets: {available}"
         )
 
 
-def _get_rafdb_dataloaders(batch_size, val_split):
-    """RAF-DB DataLoader'larını oluşturur."""
+def _get_ferplus_dataloaders(batch_size, model_name="mini_xception"):
+    """Creates FER+ DataLoaders using pre-existing train/validation/test splits."""
+    model_cfg = config.MODEL_CONFIGS.get(model_name, config.MODEL_CONFIGS["mini_xception"])
+    img_size = model_cfg["img_size"]
+    num_channels = model_cfg["num_channels"]
+
     print("\n" + "=" * 60)
-    print("  RAF-DB Dataset Yükleniyor")
+    print(f"  Loading FER+ Dataset (img={img_size}x{img_size}, ch={num_channels})")
     print("=" * 60)
 
-    # Train seti
-    full_train = RAFDBDataset(config.RAFDB_DIR, split="train")
+    # FER+ has pre-existing train/validation/test splits
+    train_dir = os.path.join(config.FERPLUS_DIR, "train")
+    val_dir = os.path.join(config.FERPLUS_DIR, "validation")
+    test_dir = os.path.join(config.FERPLUS_DIR, "test")
 
-    # Train → Train + Validation split
+    train_dataset = FERPlusDataset(
+        train_dir, transform=get_transforms("train", model_name),
+        img_size=img_size, num_channels=num_channels
+    )
+    val_dataset = FERPlusDataset(
+        val_dir, transform=get_transforms("test", model_name),
+        img_size=img_size, num_channels=num_channels
+    )
+    test_dataset = FERPlusDataset(
+        test_dir, transform=get_transforms("test", model_name),
+        img_size=img_size, num_channels=num_channels
+    )
+
+    dataloaders = _build_dataloaders(train_dataset, val_dataset,
+                                      test_dataset, batch_size)
+
+    _print_summary("FER+", train_dataset, val_dataset,
+                    test_dataset, batch_size)
+    return dataloaders
+
+
+def _get_rafdb_dataloaders(batch_size, val_split, model_name="mini_xception"):
+    """Creates RAF-DB DataLoaders."""
+    model_cfg = config.MODEL_CONFIGS.get(model_name, config.MODEL_CONFIGS["mini_xception"])
+    img_size = model_cfg["img_size"]
+    num_channels = model_cfg["num_channels"]
+
+    print("\n" + "=" * 60)
+    print(f"  Loading RAF-DB Dataset (img={img_size}x{img_size}, ch={num_channels})")
+    print("=" * 60)
+
+    # Training set
+    full_train = RAFDBDataset(config.RAFDB_DIR, split="train",
+                              img_size=img_size, num_channels=num_channels)
+
+    # Train -> Train + Validation split
     total = len(full_train)
     val_size = int(total * val_split)
     train_size = total - val_size
@@ -672,11 +887,13 @@ def _get_rafdb_dataloaders(batch_size, val_split):
         generator=torch.Generator().manual_seed(42)
     )
 
-    train_dataset = TransformSubset(train_subset, get_transforms("train"))
-    val_dataset = TransformSubset(val_subset, None)
+    train_dataset = TransformSubset(train_subset, get_transforms("train", model_name))
+    val_dataset = TransformSubset(val_subset, get_transforms("test", model_name))
 
-    # Test seti
-    test_dataset = RAFDBDataset(config.RAFDB_DIR, split="test")
+    # Test set
+    test_dataset = RAFDBDataset(config.RAFDB_DIR, split="test",
+                                transform=get_transforms("test", model_name),
+                                img_size=img_size, num_channels=num_channels)
 
     dataloaders = _build_dataloaders(train_dataset, val_dataset,
                                       test_dataset, batch_size)
@@ -686,16 +903,21 @@ def _get_rafdb_dataloaders(batch_size, val_split):
     return dataloaders
 
 
-def _get_ckplus_dataloaders(batch_size, val_split):
-    """CK+ DataLoader'larını oluşturur."""
+def _get_ckplus_dataloaders(batch_size, val_split, model_name="mini_xception"):
+    """Creates CK+ DataLoaders."""
+    model_cfg = config.MODEL_CONFIGS.get(model_name, config.MODEL_CONFIGS["mini_xception"])
+    img_size = model_cfg["img_size"]
+    num_channels = model_cfg["num_channels"]
+
     print("\n" + "=" * 60)
-    print("  CK+ Dataset Yükleniyor")
+    print(f"  Loading CK+ Dataset (img={img_size}x{img_size}, ch={num_channels})")
     print("=" * 60)
 
     csv_path = os.path.join(config.CKPLUS_DIR, "ckextended.csv")
 
-    # CK+ genellikle sadece Training içerir, biz split yapacağız
-    full_dataset = CKPlusDataset(csv_path, split="train")
+    # CK+ usually only has Training, so we manually split
+    full_dataset = CKPlusDataset(csv_path, split="train",
+                                 img_size=img_size, num_channels=num_channels)
 
     total = len(full_dataset)
     test_size = int(total * 0.15)
@@ -707,9 +929,9 @@ def _get_ckplus_dataloaders(batch_size, val_split):
         generator=torch.Generator().manual_seed(42)
     )
 
-    train_dataset = TransformSubset(train_subset, get_transforms("train"))
-    val_dataset = TransformSubset(val_subset, None)
-    test_dataset = TransformSubset(test_subset, None)
+    train_dataset = TransformSubset(train_subset, get_transforms("train", model_name))
+    val_dataset = TransformSubset(val_subset, get_transforms("test", model_name))
+    test_dataset = TransformSubset(test_subset, get_transforms("test", model_name))
 
     dataloaders = _build_dataloaders(train_dataset, val_dataset,
                                       test_dataset, batch_size)
@@ -720,7 +942,7 @@ def _get_ckplus_dataloaders(batch_size, val_split):
 
 
 def _build_dataloaders(train_ds, val_ds, test_ds, batch_size):
-    """Ortak DataLoader oluşturma yardımcısı."""
+    """Common DataLoader builder helper."""
     return {
         "train": DataLoader(
             train_ds, batch_size=batch_size, shuffle=True,
@@ -738,25 +960,25 @@ def _build_dataloaders(train_ds, val_ds, test_ds, batch_size):
 
 
 def _print_summary(name, train_ds, val_ds, test_ds, batch_size):
-    """Ortak dataset özeti yazdırma."""
-    print(f"\n[INFO] {name} Dataset boyutları:")
-    print(f"  Train:      {len(train_ds):,} örnek")
-    print(f"  Validation: {len(val_ds):,} örnek")
-    print(f"  Test:       {len(test_ds):,} örnek")
+    """Common dataset summary printer."""
+    print(f"\n[INFO] {name} Dataset sizes:")
+    print(f"  Train:      {len(train_ds):,} samples")
+    print(f"  Validation: {len(val_ds):,} samples")
+    print(f"  Test:       {len(test_ds):,} samples")
     print(f"  Batch:      {batch_size}")
-    print(f"  Cihaz:      {config.DEVICE}")
+    print(f"  Device:     {config.DEVICE}")
     print("=" * 60 + "\n")
 
 
 def get_class_weights_for_dataset(dataset_name, data_dir=None):
     """
-    Herhangi bir dataset için sınıf ağırlıklarını hesaplar.
+    Computes class weights for any dataset.
 
-    Parametreler:
+    Args:
         dataset_name (str): 'fer2013', 'rafdb', 'ckplus'
 
     Returns:
-        torch.Tensor: Sınıf ağırlıkları
+        torch.Tensor: Class weights
     """
     dataset_name = dataset_name.lower()
 
@@ -796,12 +1018,29 @@ def get_class_weights_for_dataset(dataset_name, data_dir=None):
                 counts[fer_label] = counts.get(fer_label, 0) + 1
         return _compute_weights(counts)
 
+    elif dataset_name == "ferplus":
+        train_dir = os.path.join(config.FERPLUS_DIR, "train")
+        counts = {}
+        for folder_name in sorted(os.listdir(train_dir)):
+            folder_path = os.path.join(train_dir, folder_name)
+            if not os.path.isdir(folder_path):
+                continue
+            label_name = folder_name.lower()
+            if label_name not in config.FERPLUS_FOLDER_TO_LABEL:
+                continue
+            fer_label = config.FERPLUS_FOLDER_TO_LABEL[label_name]
+            counts[fer_label] = counts.get(fer_label, 0) + len([
+                f for f in os.listdir(folder_path)
+                if f.lower().endswith(('.jpg', '.jpeg', '.png'))
+            ])
+        return _compute_weights(counts)
+
     else:
-        raise ValueError(f"Bilinmeyen dataset: {dataset_name}")
+        raise ValueError(f"Unknown dataset: {dataset_name}")
 
 
 def _compute_weights(counts):
-    """Sınıf ağırlıklarını hesapla ve yazdır."""
+    """Compute and print class weights."""
     total = sum(counts.values())
     num_classes_present = len(counts)
 
@@ -815,10 +1054,10 @@ def _compute_weights(counts):
 
     weights_tensor = torch.FloatTensor(weights)
 
-    print("[INFO] Sınıf ağırlıkları (class weights):")
+    print("[INFO] Class weights:")
     for i, w in enumerate(weights):
         count = counts.get(i, 0)
-        print(f"  {config.EMOTION_LABELS[i]:<12}: {w:.4f}  ({count:,} örnek)")
+        print(f"  {config.EMOTION_LABELS[i]:<12}: {w:.4f}  "
+              f"({count:,} samples)")
 
     return weights_tensor
-

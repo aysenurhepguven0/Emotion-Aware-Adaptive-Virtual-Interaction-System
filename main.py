@@ -1,22 +1,22 @@
 """
-main.py - Ana Çalıştırma Scripti
+main.py - Main Runner Script
 =================================
-Tüm işlevleri tek bir yerden yönetir.
-Komut satırı argümanları ile farklı modlar seçilebilir.
+Manages all functions from a single entry point.
+Different modes can be selected via command line arguments.
 
-Kullanım:
+Usage:
     python main.py --mode explore    # Dataset inceleme ve görselleştirme
     python main.py --mode train      # Model eğitimi
     python main.py --mode evaluate   # Test seti değerlendirmesi
     python main.py --mode predict --image yüz.jpg  # Tekil tahmin
-    python main.py --mode all        # Hepsini sırayla çalıştır
+    python main.py --mode all        # Run all sequentially
 """
 
 import argparse
 import os
 import sys
 
-# Proje kök dizinini Python path'ine ekle
+# Add project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config
@@ -24,13 +24,13 @@ import config
 
 def explore_dataset():
     """
-    Dataset'i yükler, inceler ve görselleştirir.
+    Loads, explores, and visualizes the dataset.
 
-    Adımlar:
-    1. FER2013 klasörlerini tara
-    2. Sınıf dağılımını hesapla ve çiz
-    3. Her sınıftan örnek görüntüler göster
-    4. Temel istatistikleri yazdır
+    Steps:
+    1. Scan FER2013 folders
+    2. Calculate and plot class distribution
+    3. Show sample images from each class
+    4. Print basic statistics
     """
     print("\n" + "=" * 60)
     print("  ADIM 1: DATASET İNCELEME")
@@ -64,53 +64,54 @@ def explore_dataset():
     train_dataset = FER2013Dataset(train_dir)
     plot_sample_images(train_dataset)
 
-    print("\n✅ Dataset inceleme tamamlandı!")
+    print("\n[OK] Dataset exploration complete!")
     print(f"   Grafikler: {config.PLOT_DIR}")
 
     return True
 
 
-def train_model():
+def train_model(dataset_name="fer2013", model_name="mini_xception"):
     """
-    Modeli eğitir.
+    Trains the model.
 
-    Adımlar:
-    1. DataLoader'ları oluştur
-    2. Mini-Xception modelini başlat
-    3. Eğitim döngüsünü çalıştır
-    4. Loss/accuracy grafiklerini çiz
-    5. En iyi modeli kaydet
+    Steps:
+    1. Create DataLoaders
+    2. Initialize selected model
+    3. Run training loop
+    4. Plot loss/accuracy graphs
+    5. Save best model
     """
     print("\n" + "=" * 60)
-    print("  ADIM 2: MODEL EĞİTİMİ")
+    print(f"  STEP 2: MODEL TRAINING ({model_name})")
     print("=" * 60)
 
-    # Dataset klasör kontrolü
+    # Dataset folder check
     if not os.path.exists(config.FER2013_DIR):
-        print(f"\n[HATA] FER2013 klasörü bulunamadı: {config.FER2013_DIR}")
+        print(f"\n[ERROR] FER2013 directory not found: {config.FER2013_DIR}")
         return False
 
     from train import Trainer
 
-    trainer = Trainer()
+    trainer = Trainer(dataset_name=dataset_name, model_name=model_name)
     history = trainer.train()
 
-    print("\n✅ Model eğitimi tamamlandı!")
-    print(f"   En iyi model: {config.BEST_MODEL_PATH}")
-    print(f"   Grafikler: {config.PLOT_DIR}")
+    best_path = config.BEST_MODEL_PATHS.get(model_name, config.BEST_MODEL_PATH)
+    print(f"\n[OK] Model training completed!")
+    print(f"   Best model: {best_path}")
+    print(f"   Plots: {config.PLOT_DIR}")
 
     return True
 
 
 def evaluate_model():
     """
-    Eğitilmiş modeli test seti üzerinde değerlendirir.
+    Evaluates trained model on test set.
 
-    Adımlar:
-    1. En iyi modeli yükle
-    2. Test setinde çalıştır
-    3. Confusion matrix oluştur
-    4. Classification report yazdır
+    Steps:
+    1. Load best model
+    2. Run on test set
+    3. Generate confusion matrix
+    4. Print classification report
     """
     print("\n" + "=" * 60)
     print("  ADIM 3: MODEL DEĞERLENDİRME")
@@ -119,14 +120,14 @@ def evaluate_model():
     # Model dosyası kontrolü
     if not os.path.exists(config.BEST_MODEL_PATH):
         print(f"\n[HATA] Eğitilmiş model bulunamadı: {config.BEST_MODEL_PATH}")
-        print("[HATA] Önce 'python main.py --mode train' ile modeli eğitin.")
+        print("[HATA] First train the model with 'python main.py --mode train'.")
         return False
 
     from evaluate import evaluate_model as eval_fn
 
     results = eval_fn()
 
-    print("\n✅ Değerlendirme tamamlandı!")
+    print("\n[OK] Evaluation complete!")
     print(f"   Doğruluk: {results['accuracy']:.2f}%")
     print(f"   Confusion matrix: {config.PLOT_DIR}")
 
@@ -135,10 +136,10 @@ def evaluate_model():
 
 def predict_emotion(image_path):
     """
-    Tekil görüntüden duygu tahmini yapar.
+    Predicts emotion from a single image.
 
-    Parametreler:
-        image_path (str): Yüz görüntüsü dosya yolu
+    Args:
+        image_path (str): Face image file path
     """
     print("\n" + "=" * 60)
     print("  ADIM 4: DUYGU TAHMİNİ")
@@ -158,20 +159,20 @@ def predict_emotion(image_path):
     result = predictor.predict_from_image(image_path)
 
     print(f"\n  Tahmin Sonucu:")
-    print(f"  ─────────────────────────────────")
+    print(f"  -----------------------------------")
     print(f"  Duygu:    {result['emotion']}")
     print(f"  Güven:    {result['confidence'] * 100:.1f}%")
     print(f"\n  Tüm Olasılıklar:")
     for emotion, prob in sorted(result['probabilities'].items(),
                                  key=lambda x: -x[1]):
-        bar = '█' * int(prob * 30)
+        bar = '#' * int(prob * 30)
         print(f"    {emotion:<12} {prob * 100:5.1f}% {bar}")
 
     return True
 
 
 def main():
-    """Komut satırı argümanlarını işle ve uygun modu çalıştır."""
+    """Process command line arguments and run appropriate mode."""
 
     parser = argparse.ArgumentParser(
         description="FER2013 Duygu Tanıma Sistemi",
@@ -183,7 +184,7 @@ def main():
   python main.py --mode evaluate          Test değerlendirmesi
   python main.py --mode predict -i yüz.jpg  Tekil tahmin
   python main.py --mode webcam            Webcam ile canlı test
-  python main.py --mode all               Hepsini sırayla çalıştır
+  python main.py --mode all               Run all sequentially
         """
     )
 
@@ -192,26 +193,42 @@ def main():
         type=str,
         choices=["explore", "train", "evaluate", "predict", "webcam", "all"],
         default="explore",
-        help="Çalışma modu (varsayılan: explore)"
+        help="Operation mode (default: explore)"
+    )
+
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=["mini_xception", "efficientnet", "resnet", "hsemotion"],
+        default="mini_xception",
+        help="Model architecture (default: mini_xception)"
+    )
+
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["fer2013", "ferplus", "rafdb", "ckplus"],
+        default="fer2013",
+        help="Training dataset (default: fer2013)"
     )
 
     parser.add_argument(
         "--image", "-i",
         type=str,
         default=None,
-        help="Tahmin yapılacak görüntü yolu (predict modu için)"
+        help="Image path for prediction (predict mode)"
     )
 
     args = parser.parse_args()
 
-    # Başlık
-    print("\n" + "╔" + "═" * 58 + "╗")
-    print("║" + "  FER2013 Yüz İfadelerinden Duygu Tanıma Sistemi".center(58) + "║")
-    print("║" + "  Bitirme Projesi - Mini-Xception (PyTorch)".center(58) + "║")
-    print("╚" + "═" * 58 + "╝")
+    # Header
+    print("\n" + "=" * 60)
+    print("  Emotion Recognition System")
+    print(f"  Model: {args.model} | Dataset: {args.dataset}")
+    print("=" * 60)
 
-    print(f"\n  Proje dizini: {config.PROJECT_ROOT}")
-    print(f"  Cihaz:        {config.DEVICE}")
+    print(f"\n  Project dir:  {config.PROJECT_ROOT}")
+    print(f"  Device:       {config.DEVICE}")
     print(f"  Python:       {sys.version.split()[0]}")
 
     # Seçilen modu çalıştır
@@ -219,7 +236,7 @@ def main():
         explore_dataset()
 
     elif args.mode == "train":
-        train_model()
+        train_model(dataset_name=args.dataset, model_name=args.model)
 
     elif args.mode == "evaluate":
         evaluate_model()
@@ -234,7 +251,7 @@ def main():
     elif args.mode == "webcam":
         if not os.path.exists(config.BEST_MODEL_PATH):
             print(f"\n[HATA] Eğitilmiş model bulunamadı: {config.BEST_MODEL_PATH}")
-            print("[HATA] Önce 'python main.py --mode train' ile modeli eğitin.")
+            print("[HATA] First train the model with 'python main.py --mode train'.")
         else:
             from webcam import WebcamEmotionDetector
             detector = WebcamEmotionDetector()
@@ -242,7 +259,7 @@ def main():
 
     elif args.mode == "all":
         print("\n  Tüm adımlar sırayla çalıştırılacak...")
-        print("  ─────────────────────────────────────")
+        print("  ---------------------------------------")
 
         # Adım 1: Dataset inceleme
         success = explore_dataset()
@@ -259,9 +276,9 @@ def main():
         if not success:
             return
 
-        print("\n" + "╔" + "═" * 58 + "╗")
-        print("║" + "  ✅ TÜM ADIMLAR BAŞARIYLA TAMAMLANDI!".center(58) + "║")
-        print("╚" + "═" * 58 + "╝")
+        print("\n" + "=" * 60)
+        print("  ALL STEPS COMPLETED SUCCESSFULLY!")
+        print("=" * 60)
 
 
 if __name__ == "__main__":

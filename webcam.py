@@ -1,18 +1,18 @@
 """
-webcam.py - Gerçek Zamanlı Webcam Duygu Tanıma
+webcam.py - Real-time Webcam Emotion Recognition
 ================================================
 OpenCV + MTCNN ile webcam'den yüz algılama ve duygu tahmini.
-Modeli eğittikten sonra webcam ile canlı test yapabilirsiniz.
+After training the model, you can test live with webcam.
 
-Kullanım:
+Usage:
     python webcam.py
     python webcam.py --model outputs/models/best_model.pth
 
-Kontroller:
-    q veya ESC  → Çıkış
-    s           → Ekran görüntüsü kaydet
+Controls:
+    q or ESC  -> Exit
+    s           -> Save screenshot
 
-Gereksinimler:
+Requirements:
     pip install opencv-python facenet-pytorch
 """
 
@@ -31,18 +31,18 @@ from models.mini_xception import get_model
 
 
 # ============================================================
-# Duygu sınıfları için renkler (BGR formatı - OpenCV)
+# Emotion class colors (BGR format - OpenCV)
 # ============================================================
 EMOTION_COLORS = {
-    0: (0, 0, 255),       # Angry    → Kırmızı
-    1: (0, 128, 0),       # Disgust  → Koyu Yeşil
-    2: (128, 0, 128),     # Fear     → Mor
-    3: (0, 255, 255),     # Happy    → Sarı
-    4: (255, 0, 0),       # Sad      → Mavi
-    5: (0, 165, 255),     # Surprise → Turuncu
+    0: (0, 0, 255),       # Angry    -> Kırmızı
+    1: (0, 128, 0),       # Disgust  -> Koyu Yeşil
+    2: (128, 0, 128),     # Fear     -> Mor
+    3: (0, 255, 255),     # Happy    -> Sarı
+    4: (255, 0, 0),       # Sad      -> Mavi
+    5: (0, 165, 255),     # Surprise -> Turuncu
 }
 
-# Türkçe duygu isimleri
+# Turkish emotion names
 EMOTION_TURKISH = {
     0: "Kizgin",
     1: "Tiksinme",
@@ -55,22 +55,22 @@ EMOTION_TURKISH = {
 
 class WebcamEmotionDetector:
     """
-    Webcam ile gerçek zamanlı yüz ifadesi tanıma.
+    Real-time facial expression recognition via webcam.
 
-    İşlem adımları:
-    1. Webcam'den frame yakala
-    2. MTCNN ile yüz algıla
-    3. Yüz bölgesini kırp, 48x48 gri tonlamaya dönüştür
-    4. Mini-Xception modeli ile duygu tahmini yap
-    5. Sonucu ekranda göster
+    Processing steps:
+    1. Capture frame from webcam
+    2. Detect faces with MTCNN
+    3. Crop face region, convert to 48x48 grayscale
+    4. Predict emotion with Mini-Xception model
+    5. Display result on screen
     """
 
     def __init__(self, model_path=None):
         """
-        Detector'ı başlat.
+        Initialize detector.
 
-        Parametreler:
-            model_path (str): Model ağırlıkları dosya yolu
+        Args:
+            model_path (str): Model weights dosya yolu
         """
         if model_path is None:
             model_path = config.BEST_MODEL_PATH
@@ -78,16 +78,16 @@ class WebcamEmotionDetector:
         # ---- Model yükle ----
         if not os.path.exists(model_path):
             raise FileNotFoundError(
-                f"Model dosyası bulunamadı: {model_path}\n"
-                "Önce 'python main.py --mode train' ile modeli eğitin."
+                f"Model file not found: {model_path}\n"
+                "First train the model with 'python main.py --mode train'."
             )
 
-        print("[INFO] Model yükleniyor...")
+        print("[INFO] Loading model...")
         self.model = get_model(pretrained_path=model_path)
         self.model.to(config.DEVICE)
         self.model.eval()
 
-        # ---- Yüz algılama için MTCNN yükle ----
+        # ---- Load MTCNN for face detection ----
         from facenet_pytorch import MTCNN as FaceDetector
         self.face_detector = FaceDetector(
             keep_all=True,
@@ -95,40 +95,40 @@ class WebcamEmotionDetector:
             min_face_size=48,
             thresholds=[0.6, 0.7, 0.7]
         )
-        print("[INFO] MTCNN yüz algılayıcı yüklendi.")
-        print("[INFO] Sistem hazır!\n")
+        print("[INFO] MTCNN face detector loaded.")
+        print("[INFO] System ready!\n")
 
     def preprocess_face(self, face_roi):
         """
-        Yüz bölgesini model girişine uygun hale getirir.
+        Preprocesses face region for model input.
 
-        Parametreler:
-            face_roi (numpy.ndarray): Kırpılmış yüz bölgesi (BGR veya Gri)
+        Args:
+            face_roi (numpy.ndarray): Cropped face region (BGR or Gray)
 
         Returns:
-            torch.Tensor: [1, 1, 48, 48] model girişi
+            torch.Tensor: [1, 1, 48, 48] model input
         """
-        # Gri tonlamaya çevir (renkli ise)
+        # Convert to grayscale (if color)
         if len(face_roi.shape) == 3:
             gray = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
         else:
             gray = face_roi
 
-        # 48x48'e yeniden boyutlandır
+        # Resize to 48x48
         resized = cv2.resize(gray, (config.IMG_SIZE, config.IMG_SIZE),
                              interpolation=cv2.INTER_AREA)
 
-        # Normalize et [0, 255] → [0.0, 1.0]
+        # Normalize [0, 255] -> [0.0, 1.0]
         normalized = resized.astype(np.float32) / 255.0
 
-        # Tensor'a dönüştür: (48,48) → (1, 1, 48, 48)
+        # Convert to tensor: (48,48) -> (1, 1, 48, 48)
         tensor = torch.FloatTensor(normalized).unsqueeze(0).unsqueeze(0)
         return tensor.to(config.DEVICE)
 
     @torch.no_grad()
     def predict_emotion(self, face_tensor):
         """
-        Yüz tensöründen duygu tahmini yapar.
+        Predicts emotion from face tensor.
 
         Returns:
             tuple: (emotion_id, emotion_name, confidence, probabilities)
@@ -146,37 +146,37 @@ class WebcamEmotionDetector:
 
     def draw_results(self, frame, faces, predictions):
         """
-        Frame üzerine yüz kutucuğu ve duygu bilgisi çizer.
+        Draws face bounding box and emotion info on frame.
 
-        Parametreler:
-            frame: Orijinal frame
-            faces: Algılanan yüzlerin koordinatları
-            predictions: Her yüz için tahmin sonuçları
+        Args:
+            frame: Original frame
+            faces: Detected face coordinates
+            predictions: Prediction results for each face
         """
         for (x, y, w, h), (emo_id, emo_name, conf, probs) in zip(faces, predictions):
             color = EMOTION_COLORS.get(emo_id, (255, 255, 255))
             turkish_name = EMOTION_TURKISH.get(emo_id, emo_name)
 
-            # Yüz çerçevesi çiz
+            # Draw face bounding box
             cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
 
-            # Duygu etiketi çiz (çerçevenin üstüne)
+            # Draw emotion label (above bounding box)
             label = f"{emo_name} ({turkish_name}) {conf*100:.0f}%"
             label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
 
-            # Etiket arka planı
+            # Label background
             cv2.rectangle(frame,
                           (x, y - label_size[1] - 12),
                           (x + label_size[0] + 8, y),
                           color, -1)
 
-            # Etiket metni
+            # Label text
             cv2.putText(frame, label,
                         (x + 4, y - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                         (255, 255, 255), 2)
 
-            # Olasılık çubukları (sağ tarafta)
+            # Probability bars (on the right side)
             bar_x = x + w + 10
             bar_y_start = y
             bar_height = 16
@@ -187,13 +187,13 @@ class WebcamEmotionDetector:
                 bar_w = int(prob * bar_max_width)
                 by = bar_y_start + i * (bar_height + 4)
 
-                # Bar arka planı
+                # Bar background
                 cv2.rectangle(frame,
                               (bar_x, by),
                               (bar_x + bar_max_width, by + bar_height),
                               (50, 50, 50), -1)
 
-                # Bar dolgusu
+                # Bar fill
                 bar_color = EMOTION_COLORS.get(i, (200, 200, 200))
                 cv2.rectangle(frame,
                               (bar_x, by),
@@ -211,27 +211,27 @@ class WebcamEmotionDetector:
 
     def run(self, camera_id=0):
         """
-        Webcam döngüsünü başlatır.
+        Starts the webcam loop.
 
-        Parametreler:
-            camera_id (int): Kamera ID'si (varsayılan: 0 = ana webcam)
+        Args:
+            camera_id (int): Camera ID (default: 0 = main webcam)
         """
         print("=" * 50)
-        print("  WEBCAM DUYGU TANIMA")
+        print("  WEBCAM EMOTION RECOGNITION")
         print("=" * 50)
-        print("  Kontroller:")
-        print("    q / ESC  → Çıkış")
-        print("    s        → Ekran görüntüsü kaydet")
+        print("  Controls:")
+        print("    q / ESC  -> Exit")
+        print("    s        -> Save screenshot")
         print("=" * 50)
 
-        # Webcam'i aç
+        # Open webcam
         cap = cv2.VideoCapture(camera_id)
 
         if not cap.isOpened():
-            print("[HATA] Webcam açılamadı! Kamera bağlı olduğundan emin olun.")
+            print("[HATA] Could not open webcam! Make sure camera is connected.")
             return
 
-        # Çözünürlük ayarla (performans için)
+        # Set resolution (for performance)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -239,25 +239,25 @@ class WebcamEmotionDetector:
         fps_time = time.time()
         fps_display = 0
 
-        print("\n[INFO] Webcam açıldı. 'q' tuşuna basarak çıkabilirsiniz.\n")
+        print("\n[INFO] Webcam opened. Press 'q' to exit.\n")
 
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("[HATA] Frame okunamadı!")
+                print("[HATA] Could not read frame!")
                 break
 
-            # MTCNN ile yüz algıla (RGB formatı gerekli)
+            # Detect faces with MTCNN (RGB formatı gerekli)
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             boxes, _ = self.face_detector.detect(frame_rgb)
 
-            # Her yüz için duygu tahmini
+            # Predict emotion for each face
             predictions = []
             faces = []
             if boxes is not None:
                 for box in boxes:
                     x1, y1, x2, y2 = [int(b) for b in box]
-                    # Sınırları kontrol et
+                    # Check bounds
                     x1 = max(0, x1)
                     y1 = max(0, y1)
                     x2 = min(frame.shape[1], x2)
@@ -267,20 +267,20 @@ class WebcamEmotionDetector:
                     if w < 20 or h < 20:
                         continue
 
-                    # Yüz bölgesini kırp
+                    # Crop face region
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     face_roi = gray[y1:y2, x1:x2]
 
-                    # Duygu tahmini yap
+                    # Predict emotion
                     face_tensor = self.preprocess_face(face_roi)
                     prediction = self.predict_emotion(face_tensor)
                     predictions.append(prediction)
                     faces.append((x1, y1, w, h))
 
-            # Sonuçları çiz
+            # Draw results
             frame = self.draw_results(frame, faces, predictions)
 
-            # FPS hesapla ve göster
+            # Calculate and display FPS
             fps_counter += 1
             elapsed = time.time() - fps_time
             if elapsed >= 1.0:
@@ -296,37 +296,37 @@ class WebcamEmotionDetector:
                         (10, 50), cv2.FONT_HERSHEY_SIMPLEX,
                         0.6, (200, 200, 200), 1)
 
-            # Pencereyi göster
+            # Display window
             cv2.imshow("Duygu Tanima - FER2013 (q: Cikis)", frame)
 
-            # Tuş kontrolü
+            # Key control
             key = cv2.waitKey(1) & 0xFF
 
-            if key == ord('q') or key == 27:  # q veya ESC
-                print("\n[INFO] Çıkış yapılıyor...")
+            if key == ord('q') or key == 27:  # q or ESC
+                print("\n[INFO] Exit yapılıyor...")
                 break
-            elif key == ord('s'):  # Screenshot kaydet
+            elif key == ord('s'):  # Save screenshot
                 screenshot_path = os.path.join(
                     config.OUTPUT_DIR,
                     f"screenshot_{int(time.time())}.png"
                 )
                 cv2.imwrite(screenshot_path, frame)
-                print(f"[INFO] Ekran görüntüsü kaydedildi: {screenshot_path}")
+                print(f"[INFO] Screenshot saved: {screenshot_path}")
 
-        # Temizle
+        # Cleanup
         cap.release()
         cv2.destroyAllWindows()
-        print("[INFO] Webcam kapatıldı.")
+        print("[INFO] Webcam closed.")
 
 
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Webcam Duygu Tanıma")
+    parser = argparse.ArgumentParser(description="Webcam Emotion Recognition")
     parser.add_argument("--model", type=str, default=None,
-                        help="Model dosya yolu (varsayılan: best_model.pth)")
+                        help="Model file path (default: best_model.pth)")
     parser.add_argument("--camera", type=int, default=0,
-                        help="Kamera ID (varsayılan: 0)")
+                        help="Camera ID (default: 0)")
     args = parser.parse_args()
 
     detector = WebcamEmotionDetector(args.model)

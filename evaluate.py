@@ -1,10 +1,10 @@
 """
-evaluate.py - Model Değerlendirme
+evaluate.py - Model Evaluation
 ==================================
 Eğitilmiş modelin test seti üzerinde kapsamlı değerlendirmesi.
 Confusion matrix, classification report, per-class accuracy.
 
-Kullanım:
+Usage:
     python evaluate.py
     veya
     python main.py --mode evaluate
@@ -27,7 +27,7 @@ def evaluate_model(model=None, dataloader=None, split_name="Test",
     """
     Modeli belirtilen veri seti üzerinde değerlendirir.
 
-    Parametreler:
+    Args:
         model: PyTorch model (None ise en iyi model yüklenir)
         dataloader: Test DataLoader (None ise otomatik oluşturulur)
         split_name (str): Split adı (yazdırma için)
@@ -76,7 +76,7 @@ def evaluate_model(model=None, dataloader=None, split_name="Test",
     y_true = np.array(all_labels)
     y_pred = np.array(all_predictions)
 
-    # Genel doğruluk
+    # Overall accuracy
     accuracy = accuracy_score(y_true, y_pred) * 100
 
     # Sınıf isimleri
@@ -90,9 +90,9 @@ def evaluate_model(model=None, dataloader=None, split_name="Test",
     )
 
     # Sonuçları yazdır
-    print(f"\n{'─' * 50}")
+    print(f"\n{'-' * 50}")
     print(f"  Genel Doğruluk: {accuracy:.2f}%")
-    print(f"{'─' * 50}")
+    print(f"{'-' * 50}")
     print(f"\n  Classification Report:")
     print(report)
 
@@ -121,7 +121,7 @@ def compare_models(model_paths, model_names=None, dataset_name="fer2013"):
     Birden fazla modeli karşılaştırır.
     İleride farklı datasetler veya mimariler karşılaştırılırken kullanılır.
 
-    Parametreler:
+    Args:
         model_paths (list): Model dosya yolları
         model_names (list): Model isimleri (yazdırma için)
     """
@@ -147,16 +147,16 @@ def compare_models(model_paths, model_names=None, dataset_name="fer2013"):
     print(f"  MODEL KARŞILAŞTIRMASI")
     print(f"{'=' * 60}")
     print(f"\n{'Model':<20} {'Accuracy':>10}")
-    print(f"{'─' * 32}")
+    print(f"{'-' * 32}")
     for r in results:
         print(f"{r['name']:<20} {r['accuracy']:>9.2f}%")
-    print(f"{'─' * 32}\n")
+    print(f"{'-' * 32}\n")
 
     return results
 
 
 def main(dataset_name="fer2013"):
-    """Doğrudan çalıştırma için."""
+    """For direct execution."""
     if not os.path.exists(config.BEST_MODEL_PATH):
         print(f"[HATA] Eğitilmiş model bulunamadı: {config.BEST_MODEL_PATH}")
         print("[HATA] Önce 'python train.py' ile modeli eğitin.")
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Emotion Recognition Değerlendirme")
     parser.add_argument("--dataset", type=str, default="fer2013",
-                        choices=["fer2013", "rafdb", "ckplus"],
+                        choices=["fer2013", "ferplus", "rafdb", "ckplus"],
                         help="Değerlendirme dataseti (varsayılan: fer2013)")
     args = parser.parse_args()
     main(dataset_name=args.dataset)
