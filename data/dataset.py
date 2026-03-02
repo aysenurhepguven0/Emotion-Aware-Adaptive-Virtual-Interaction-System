@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 
-# Folder name to label mapping (6 Ekman, Neutral excluded)
+# Folder name to label mapping (6 Ekman + Neutral)
 FOLDER_TO_LABEL = {
     "angry": 0,
     "disgust": 1,
@@ -41,7 +41,7 @@ FOLDER_TO_LABEL = {
     "happy": 3,
     "sad": 4,
     "surprise": 5,
-    # "neutral" removed -- focusing on 6 Ekman emotions
+    "neutral": 6,
 }
 
 

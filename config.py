@@ -39,7 +39,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ============================================================
 # Emotion Labels (6 Ekman Emotions)
 # ============================================================
-# 6 basic Ekman emotions (Neutral excluded)
+# 6 basic Ekman emotions + Neutral
 EMOTION_LABELS = {
     0: "Angry",
     1: "Disgust",
@@ -47,13 +47,14 @@ EMOTION_LABELS = {
     3: "Happy",
     4: "Sad",
     5: "Surprise",
+    6: "Neutral",
 }
 
 NUM_CLASSES = len(EMOTION_LABELS)  # 6
 IMG_SIZE = 48   # FER2013 image size: 48x48 pixels
 NUM_CHANNELS = 1  # Grayscale
 
-# RAF-DB labels (original 1-7 mapped to standard 0-5, Neutral excluded)
+# RAF-DB labels (original 1-7 mapped to standard 0-6)
 RAFDB_LABEL_MAP = {
     1: 5,  # Surprise  -> 5
     2: 2,  # Fear      -> 2
@@ -61,7 +62,7 @@ RAFDB_LABEL_MAP = {
     4: 3,  # Happiness -> 3
     5: 4,  # Sadness   -> 4
     6: 0,  # Anger     -> 0
-    # 7: Neutral -> filtered out
+    7: 6,  # Neutral   -> 6
 }
 
 # CK+ labels (8 classes -- Contempt is an extra class)
@@ -76,7 +77,7 @@ CKPLUS_EMOTION_LABELS = {
     7: "Fear"
 }
 
-# CK+ -> 6 Ekman mapping (Contempt and Neutral removed)
+# CK+ -> 7 class mapping (Contempt removed, Neutral included)
 CKPLUS_TO_FER_MAP = {
     0: 0,  # Anger    -> Angry
     2: 1,  # Disgust  -> Disgust
@@ -84,8 +85,8 @@ CKPLUS_TO_FER_MAP = {
     3: 3,  # Happy    -> Happy
     4: 4,  # Sadness  -> Sad
     5: 5,  # Surprise -> Surprise
+    6: 6,  # Neutral  -> Neutral
     # 1: Contempt -> removed
-    # 6: Neutral  -> removed
 }
 
 # FERPlus folder name -> 6 Ekman label mapping
@@ -98,8 +99,8 @@ FERPLUS_FOLDER_TO_LABEL = {
     "sad": 4,
     "suprise": 5,    # Misspelled in dataset
     "surprise": 5,   # Fallback if corrected
+    "neutral": 6,
     # "contempt" -> removed
-    # "neutral"  -> removed
 }
 
 # ============================================================

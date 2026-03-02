@@ -40,6 +40,7 @@ EMOTION_COLORS = {
     3: (0, 255, 255),     # Happy    -> Sarı
     4: (255, 0, 0),       # Sad      -> Mavi
     5: (0, 165, 255),     # Surprise -> Turuncu
+    6: (200, 200, 200),   # Neutral  -> Gri
 }
 
 # Turkish emotion names
@@ -50,6 +51,7 @@ EMOTION_TURKISH = {
     3: "Mutlu",
     4: "Uzgun",
     5: "Saskin",
+    6: "Notr",
 }
 
 
@@ -246,6 +248,9 @@ class WebcamEmotionDetector:
             if not ret:
                 print("[HATA] Could not read frame!")
                 break
+
+            # Mirror the frame horizontally (natural mirror view)
+            frame = cv2.flip(frame, 1)
 
             # Detect faces with MTCNN (RGB formatı gerekli)
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

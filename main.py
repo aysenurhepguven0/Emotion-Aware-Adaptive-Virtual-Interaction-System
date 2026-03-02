@@ -103,7 +103,7 @@ def train_model(dataset_name="fer2013", model_name="mini_xception"):
     return True
 
 
-def evaluate_model():
+def evaluate_model(model_name="mini_xception"):
     """
     Evaluates trained model on test set.
 
@@ -117,15 +117,18 @@ def evaluate_model():
     print("  ADIM 3: MODEL DEĞERLENDİRME")
     print("=" * 60)
 
-    # Model dosyası kontrolü
-    if not os.path.exists(config.BEST_MODEL_PATH):
-        print(f"\n[HATA] Eğitilmiş model bulunamadı: {config.BEST_MODEL_PATH}")
+    # Model dosyası kontrolü - model-specific path kullan
+    model_path = config.BEST_MODEL_PATHS.get(model_name, config.BEST_MODEL_PATH)
+    if not os.path.exists(model_path):
+        print(f"\n[HATA] Eğitilmiş model bulunamadı: {model_path}")
         print("[HATA] First train the model with 'python main.py --mode train'.")
         return False
 
     from evaluate import evaluate_model as eval_fn
+    from models.mini_xception import get_model
 
-    results = eval_fn()
+    model = get_model(pretrained_path=model_path)
+    results = eval_fn(model=model)
 
     print("\n[OK] Evaluation complete!")
     print(f"   Doğruluk: {results['accuracy']:.2f}%")
@@ -134,12 +137,13 @@ def evaluate_model():
     return True
 
 
-def predict_emotion(image_path):
+def predict_emotion(image_path, model_name="mini_xception"):
     """
     Predicts emotion from a single image.
 
     Args:
         image_path (str): Face image file path
+        model_name (str): Model architecture name
     """
     print("\n" + "=" * 60)
     print("  ADIM 4: DUYGU TAHMİNİ")
@@ -149,13 +153,14 @@ def predict_emotion(image_path):
         print(f"\n[HATA] Görüntü bulunamadı: {image_path}")
         return False
 
-    if not os.path.exists(config.BEST_MODEL_PATH):
-        print(f"\n[HATA] Eğitilmiş model bulunamadı: {config.BEST_MODEL_PATH}")
+    model_path = config.BEST_MODEL_PATHS.get(model_name, config.BEST_MODEL_PATH)
+    if not os.path.exists(model_path):
+        print(f"\n[HATA] Eğitilmiş model bulunamadı: {model_path}")
         return False
 
     from inference import EmotionPredictor
 
-    predictor = EmotionPredictor()
+    predictor = EmotionPredictor(model_path=model_path)
     result = predictor.predict_from_image(image_path)
 
     print(f"\n  Tahmin Sonucu:")
@@ -239,22 +244,23 @@ def main():
         train_model(dataset_name=args.dataset, model_name=args.model)
 
     elif args.mode == "evaluate":
-        evaluate_model()
+        evaluate_model(model_name=args.model)
 
     elif args.mode == "predict":
         if args.image is None:
             print("\n[HATA] predict modu için --image argümanı gerekli!")
             print("  Örnek: python main.py --mode predict --image yüz.jpg")
         else:
-            predict_emotion(args.image)
+            predict_emotion(args.image, model_name=args.model)
 
     elif args.mode == "webcam":
-        if not os.path.exists(config.BEST_MODEL_PATH):
-            print(f"\n[HATA] Eğitilmiş model bulunamadı: {config.BEST_MODEL_PATH}")
+        model_path = config.BEST_MODEL_PATHS.get(args.model, config.BEST_MODEL_PATH)
+        if not os.path.exists(model_path):
+            print(f"\n[HATA] Eğitilmiş model bulunamadı: {model_path}")
             print("[HATA] First train the model with 'python main.py --mode train'.")
         else:
             from webcam import WebcamEmotionDetector
-            detector = WebcamEmotionDetector()
+            detector = WebcamEmotionDetector(model_path=model_path)
             detector.run()
 
     elif args.mode == "all":
