@@ -50,7 +50,7 @@ EMOTION_LABELS = {
     6: "Neutral",
 }
 
-NUM_CLASSES = len(EMOTION_LABELS)  # 6
+NUM_CLASSES = len(EMOTION_LABELS)  # 7
 IMG_SIZE = 48   # FER2013 image size: 48x48 pixels
 NUM_CHANNELS = 1  # Grayscale
 
@@ -210,7 +210,7 @@ DATASET_CONFIGS = {
         "data_dir": FER2013_DIR,
         "img_size": 48,
         "num_channels": 1,
-        "num_classes": 6,
+        "num_classes": 7,
         "labels": EMOTION_LABELS
     },
     "ferplus": {
@@ -218,7 +218,7 @@ DATASET_CONFIGS = {
         "data_dir": FERPLUS_DIR,
         "img_size": 48,
         "num_channels": 1,
-        "num_classes": 6,
+        "num_classes": 7,
         "labels": EMOTION_LABELS
     },
     "ckplus": {
@@ -226,7 +226,7 @@ DATASET_CONFIGS = {
         "data_dir": CKPLUS_DIR,
         "img_size": 48,
         "num_channels": 1,
-        "num_classes": 6,
+        "num_classes": 7,
         "labels": EMOTION_LABELS
     },
     "rafdb": {
@@ -234,7 +234,7 @@ DATASET_CONFIGS = {
         "data_dir": RAFDB_DIR,
         "img_size": 48,
         "num_channels": 1,
-        "num_classes": 6,
+        "num_classes": 7,
         "labels": EMOTION_LABELS
     },
 }
