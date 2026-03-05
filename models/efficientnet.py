@@ -5,7 +5,7 @@ Facial expression recognition using ImageNet pretrained EfficientNet-B0.
 
 - Transfer Learning with pretrained weights
 - Automatic Grayscale (1 channel) -> RGB (3 channel) conversion
-- Final layer adapted for 6 classes (6 Ekman emotions)
+- Final layer adapted for 5 classes (5 emotions)
 - ~5.3M parameters (4M frozen + 1.3M trainable)
 
 Reference:
@@ -30,17 +30,17 @@ class EfficientNetB0(nn.Module):
         1. Load ImageNet pretrained EfficientNet-B0
         2. Freeze initial layers (frozen) -- general features preserved
         3. Fine-tune final layers -- specialized for emotion recognition
-        4. Classifier adapted for 6 classes
+        4. Classifier adapted for num_classes
 
     Input: [batch, 1, 48, 48] (grayscale) -> auto [batch, 3, 48, 48] (RGB)
-    Output: [batch, 6] (6 emotion class logits)
+    Output: [batch, num_classes] logit output
     """
 
-    def __init__(self, num_classes=6, in_channels=1,
+    def __init__(self, num_classes=7, in_channels=1,
                  freeze_backbone=True, unfreeze_last_n=2):
         """
         Args:
-            num_classes (int): Number of classes (default: 6)
+            num_classes (int): Number of classes (default: 7)
             in_channels (int): Input channels (1=grayscale, 3=RGB)
             freeze_backbone (bool): Freeze backbone (Transfer Learning)
             unfreeze_last_n (int): Number of last blocks to unfreeze
@@ -164,7 +164,7 @@ def get_efficientnet_model(num_classes=None, in_channels=None,
     if num_classes is None:
         num_classes = config.NUM_CLASSES
     if in_channels is None:
-        in_channels = config.NUM_CHANNELS
+        in_channels = config.MODEL_CONFIGS["efficientnet"]["num_channels"]
 
     model = EfficientNetB0(
         num_classes=num_classes,
