@@ -37,32 +37,30 @@ os.makedirs(PLOT_DIR, exist_ok=True)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ============================================================
-# Emotion Labels (6 Ekman Emotions)
+# Emotion Labels (5 Emotions: Disgust & Fear removed)
 # ============================================================
-# 6 basic Ekman emotions + Neutral
+# 4 Ekman emotions (Angry, Happy, Sad, Surprise) + Neutral
 EMOTION_LABELS = {
     0: "Angry",
-    1: "Disgust",
-    2: "Fear",
-    3: "Happy",
-    4: "Sad",
-    5: "Surprise",
-    6: "Neutral",
+    1: "Happy",
+    2: "Sad",
+    3: "Surprise",
+    4: "Neutral",
 }
 
-NUM_CLASSES = len(EMOTION_LABELS)  # 7
+NUM_CLASSES = len(EMOTION_LABELS)  # 5
 IMG_SIZE = 48   # FER2013 image size: 48x48 pixels
 NUM_CHANNELS = 1  # Grayscale
 
-# RAF-DB labels (original 1-7 mapped to standard 0-6)
+# RAF-DB labels (original 1-7 mapped to standard 0-4)
 RAFDB_LABEL_MAP = {
-    1: 5,  # Surprise  -> 5
-    2: 2,  # Fear      -> 2
-    3: 1,  # Disgust   -> 1
-    4: 3,  # Happiness -> 3
-    5: 4,  # Sadness   -> 4
+    1: 3,  # Surprise  -> 3
+    # 2: Fear      -> removed
+    # 3: Disgust   -> removed
+    4: 1,  # Happiness -> 1
+    5: 2,  # Sadness   -> 2
     6: 0,  # Anger     -> 0
-    7: 6,  # Neutral   -> 6
+    7: 4,  # Neutral   -> 4
 }
 
 # CK+ labels (8 classes -- Contempt is an extra class)
@@ -77,29 +75,29 @@ CKPLUS_EMOTION_LABELS = {
     7: "Fear"
 }
 
-# CK+ -> 7 class mapping (Contempt removed, Neutral included)
+# CK+ -> 5 class mapping (Contempt, Disgust, Fear removed)
 CKPLUS_TO_FER_MAP = {
     0: 0,  # Anger    -> Angry
-    2: 1,  # Disgust  -> Disgust
-    7: 2,  # Fear     -> Fear
-    3: 3,  # Happy    -> Happy
-    4: 4,  # Sadness  -> Sad
-    5: 5,  # Surprise -> Surprise
-    6: 6,  # Neutral  -> Neutral
+    # 2: Disgust  -> removed
+    # 7: Fear     -> removed
+    3: 1,  # Happy    -> Happy
+    4: 2,  # Sadness  -> Sad
+    5: 3,  # Surprise -> Surprise
+    6: 4,  # Neutral  -> Neutral
     # 1: Contempt -> removed
 }
 
-# FERPlus folder name -> 6 Ekman label mapping
+# FERPlus folder name -> 5 emotion label mapping
 # Note: 'suprise' is the actual folder name in the dataset (misspelled)
 FERPLUS_FOLDER_TO_LABEL = {
     "angry": 0,
-    "disgust": 1,
-    "fear": 2,
-    "happy": 3,
-    "sad": 4,
-    "suprise": 5,    # Misspelled in dataset
-    "surprise": 5,   # Fallback if corrected
-    "neutral": 6,
+    # "disgust" -> removed
+    # "fear" -> removed
+    "happy": 1,
+    "sad": 2,
+    "suprise": 3,    # Misspelled in dataset
+    "surprise": 3,   # Fallback if corrected
+    "neutral": 4,
     # "contempt" -> removed
 }
 
@@ -210,7 +208,7 @@ DATASET_CONFIGS = {
         "data_dir": FER2013_DIR,
         "img_size": 48,
         "num_channels": 1,
-        "num_classes": 7,
+        "num_classes": 5,
         "labels": EMOTION_LABELS
     },
     "ferplus": {

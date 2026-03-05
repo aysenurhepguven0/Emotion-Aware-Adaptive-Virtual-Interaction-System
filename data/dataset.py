@@ -8,8 +8,6 @@ FER2013 Folder Structure (Kaggle image format):
     fer2013/
     +-- train/
     |   +-- angry/
-    |   +-- disgust/
-    |   +-- fear/
     |   +-- happy/
     |   +-- sad/
     |   +-- surprise/
@@ -33,15 +31,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 
-# Folder name to label mapping (6 Ekman + Neutral)
+# Folder name to label mapping (5 emotions: Disgust & Fear removed)
 FOLDER_TO_LABEL = {
     "angry": 0,
-    "disgust": 1,
-    "fear": 2,
-    "happy": 3,
-    "sad": 4,
-    "surprise": 5,
-    "neutral": 6,
+    # "disgust" -> removed
+    # "fear" -> removed
+    "happy": 1,
+    "sad": 2,
+    "surprise": 3,
+    "neutral": 4,
 }
 
 
@@ -110,7 +108,7 @@ class FER2013Dataset(Dataset):
 
         Returns:
             image (Tensor): Normalized image of shape [1, 48, 48]
-            label (int): Emotion label in range 0-5 (6 Ekman)
+            label (int): Emotion label in range 0-4
         """
         # Read image
         img_path = self.image_paths[idx]
@@ -421,7 +419,7 @@ def get_class_distribution(data_dir=None):
 def get_class_weights(data_dir=None):
     """
     Computes class weights to handle imbalanced class distribution.
-    Minority classes (e.g., Disgust) receive higher weights.
+    Minority classes receive higher weights.
 
     Returns:
         torch.Tensor: Weight tensor for each class
@@ -596,8 +594,8 @@ class CKPlusDataset(Dataset):
         emotion,pixels,Usage
         6, 36 39 35 ..., Training
 
-    - Contempt (label=1) and Neutral (label=6) are removed.
-    - CK+ labels are mapped to 6 Ekman labels.
+    - Contempt (label=1), Disgust (label=2), Fear (label=7) and Neutral (label=6) are removed.
+    - CK+ labels are mapped to 5 emotion labels.
     - Pixel data is 48x48 grayscale.
     """
 
@@ -661,7 +659,7 @@ class CKPlusDataset(Dataset):
         info = f"[INFO] CK+ {split}: {len(self.images)} images loaded "
         info += f"({len(set(self.labels))} classes)"
         if skipped > 0:
-            info += f" [{skipped} Contempt/Neutral samples skipped]"
+            info += f" [{skipped} Contempt/Disgust/Fear/Neutral samples skipped]"
         print(info)
 
     def __len__(self):
@@ -702,8 +700,8 @@ class FERPlusDataset(Dataset):
     FER+ structure:
         ferplus/
         +-- train/
-        |   +-- angry/  disgust/  fear/  happy/  sad/  suprise/
-        |   +-- contempt/  neutral/  (filtered out)
+        |   +-- angry/  happy/  sad/  suprise/
+        |   +-- contempt/  neutral/  disgust/  fear/  (filtered out)
         +-- validation/
         +-- test/
 

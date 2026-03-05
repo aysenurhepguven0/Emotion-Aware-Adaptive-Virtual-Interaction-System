@@ -35,23 +35,19 @@ from models.mini_xception import get_model
 # ============================================================
 EMOTION_COLORS = {
     0: (0, 0, 255),       # Angry    -> Kırmızı
-    1: (0, 128, 0),       # Disgust  -> Koyu Yeşil
-    2: (128, 0, 128),     # Fear     -> Mor
-    3: (0, 255, 255),     # Happy    -> Sarı
-    4: (255, 0, 0),       # Sad      -> Mavi
-    5: (0, 165, 255),     # Surprise -> Turuncu
-    6: (200, 200, 200),   # Neutral  -> Gri
+    1: (0, 255, 255),     # Happy    -> Sarı
+    2: (255, 0, 0),       # Sad      -> Mavi
+    3: (0, 165, 255),     # Surprise -> Turuncu
+    4: (200, 200, 200),   # Neutral  -> Gri
 }
 
 # Turkish emotion names
 EMOTION_TURKISH = {
     0: "Kizgin",
-    1: "Tiksinme",
-    2: "Korku",
-    3: "Mutlu",
-    4: "Uzgun",
-    5: "Saskin",
-    6: "Notr",
+    1: "Mutlu",
+    2: "Uzgun",
+    3: "Saskin",
+    4: "Notr",
 }
 
 

@@ -1,36 +1,34 @@
 # Emotion-Aware Adaptive Virtual Interaction System
 
-**Duygu Farkındalıklı Uyarlanabilir Sanal Etkileşim Sistemi**
-
-Gerçek zamanlı yüz ifadesi tanıma ve duyguya duyarlı sanal etkileşim sistemi. Webcam üzerinden yüz ifadelerini algılayarak 6 temel Ekman duygusunu sınıflandırır ve sonuçları Unity 3D ortamında **generative data sculpture** (üretken veri heykeli) olarak görselleştirir.
+A real-time facial expression recognition and emotion-aware virtual interaction system. It detects facial expressions through a webcam, classifies them into 5 emotion categories, and visualizes the results as a **generative data sculpture** in Unity 3D.
 
 ---
 
-## Proje Özeti
+## Project Overview
 
-Bu proje, CNN tabanlı duygu tanıma modellerini karşılaştırmalı olarak değerlendirmekte ve en iyi modeli iki farklı modda dağıtmaktadır:
+This project comparatively evaluates CNN-based emotion recognition models and deploys the best-performing model in two different modes:
 
-- **Webcam Modu**: MTCNN ile gerçek zamanlı yüz algılama + duygu tahmini
-- **Unity 3D Modu**: TCP üzerinden iletilen duygu verileriyle yönlendirilen interaktif parçacık heykeli
+- **Webcam Mode**: Real-time face detection with MTCNN + emotion prediction
+- **Unity 3D Mode**: Interactive particle sculpture driven by emotion data transmitted over TCP
 
-### Hedef Duygular (6 Ekman)
-| ID | Duygu | Emotion |
-|----|-------|---------|
-| 0 | Kızgın | Angry |
-| 1 | Tiksinme | Disgust |
-| 2 | Korku | Fear |
-| 3 | Mutlu | Happy |
-| 4 | Üzgün | Sad |
-| 5 | Şaşkın | Surprise |
+### Target Emotions (5 Classes)
+
+| ID | Emotion  |
+|----|----------|
+| 0  | Angry    |
+| 1  | Happy    |
+| 2  | Sad      |
+| 3  | Surprise |
+| 4  | Neutral  |
 
 ---
 
-## Sistem Mimarisi
+## System Architecture
 
 ```
 +---------------------------------------------------+
 |  Layer 1 -- Data Pipeline                         |
-|  FER2013 / FER+ / RAF-DB / CK+ -> Augmentation    |
+|  FER2013 / FER+ / RAF-DB / CK+ -> Augmentation   |
 +---------------------------------------------------+
 |  Layer 2 -- Candidate Model Architectures         |
 |  Mini-Xception / EfficientNet-B0 / ResNet-18      |
@@ -47,73 +45,71 @@ Bu proje, CNN tabanlı duygu tanıma modellerini karşılaştırmalı olarak de�
 
 ---
 
-## Proje Yapısı
+## Project Structure
 
 ```
 proje_kodu/
-|-- config.py                 # Tum konfigurasyon ve hyperparametreler
-|-- main.py                   # Ana calistirma scripti
-|-- train.py                  # Egitim pipeline'i
-|-- evaluate.py               # Model degerlendirme ve metrikler
-|-- compare_models.py         # Model karsilastirma scripti
-|-- webcam.py                 # Gercek zamanli webcam modu (MTCNN)
-|-- unity_bridge.py           # Python <-> Unity TCP koprusu
-|-- inference.py              # Tekil goruntu tahmini
-|-- colab_train.ipynb         # Google Colab egitim notebook'u
-|-- requirements.txt          # Python bagimliliklari
+|-- config.py                 # All configurations and hyperparameters
+|-- main.py                   # Main execution script
+|-- train.py                  # Training pipeline
+|-- evaluate.py               # Model evaluation and metrics
+|-- compare_models.py         # Model comparison script
+|-- webcam.py                 # Real-time webcam mode (MTCNN)
+|-- unity_bridge.py           # Python <-> Unity TCP bridge
+|-- inference.py              # Single image prediction
+|-- colab_train.ipynb         # Google Colab training notebook
+|-- requirements.txt          # Python dependencies
 |
 |-- data/
-|   |-- dataset.py            # Dataset siniflari ve DataLoader'lar
-|   |-- fer2013/              # FER2013 veri seti (train/test)
-|   |-- ferplus/              # FER+ veri seti (train/validation/test)
-|   |-- raf-db/               # RAF-DB veri seti
-|   +-- ck+/                  # CK+ veri seti
+|   |-- dataset.py            # Dataset classes and DataLoaders
+|   |-- fer2013/              # FER2013 dataset (train/test)
+|   |-- ferplus/              # FER+ dataset (train/validation/test)
+|   |-- raf-db/               # RAF-DB dataset
+|   +-- ck+/                  # CK+ dataset
 |
 |-- models/
-|   |-- mini_xception.py      # Mini-Xception CNN mimarisi
+|   |-- mini_xception.py      # Mini-Xception CNN architecture
 |   |-- efficientnet.py       # EfficientNet-B0 (transfer learning)
 |   |-- resnet.py             # ResNet-18 (transfer learning)
 |   +-- hsemotion_model.py    # HSEmotion (AffectNet pre-trained)
 |
 |-- utils/
-|   +-- visualization.py      # Grafik ve gorsellestirme araclari
+|   +-- visualization.py      # Plotting and visualization utilities
 |
 |-- unity/
-|   |-- EmotionReceiver.cs    # Unity TCP alici script
-|   +-- EmotionParticleSystem.cs  # Duygu tabanli parcacik heykeli
+|   |-- EmotionReceiver.cs    # Unity TCP receiver script
+|   +-- EmotionParticleSystem.cs  # Emotion-based particle sculpture
 |
 +-- outputs/
-    |-- models/               # Egitilmis model agirliklari (.pth)
-    +-- plots/                # Egitim grafikleri
+    |-- models/               # Trained model weights (.pth)
+    +-- plots/                # Training plots
 ```
 
 ---
 
-## Kurulum
+## Installation
 
-### Gereksinimler
+### Requirements
 - Python 3.9+
-- CUDA destekli GPU (opsiyonel, CPU'da da çalışır)
+- CUDA-enabled GPU (optional, also runs on CPU)
 
-### 1. Depoyu klonlayın
+### 1. Clone the repository
 ```bash
 git clone https://github.com/aysenurhepguven0/Emotion-Aware-Adaptive-Virtual-Interaction-System.git
 cd Emotion-Aware-Adaptive-Virtual-Interaction-System
 ```
 
-### 2. Bağımlılıkları yükleyin
+### 2. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Veri setlerini hazırlayın
-FER2013 veri setini `data/fer2013/` dizinine klasör formatında yerleştirin:
+### 3. Prepare datasets
+Place the FER2013 dataset in the `data/fer2013/` directory in folder format:
 ```
 data/fer2013/
 |-- train/
 |   |-- angry/
-|   |-- disgust/
-|   |-- fear/
 |   |-- happy/
 |   |-- sad/
 |   +-- surprise/
@@ -124,83 +120,83 @@ data/fer2013/
 
 ---
 
-## Kullanım
+## Usage
 
-### Model Egitimi
+### Model Training
 ```bash
-# Mini-Xception ile egitim (varsayilan)
+# Train with Mini-Xception (default)
 python train.py --dataset fer2013 --model mini_xception
 
-# EfficientNet-B0 ile egitim (transfer learning)
+# Train with EfficientNet-B0 (transfer learning)
 python train.py --dataset fer2013 --model efficientnet
 
-# ResNet-18 ile egitim
+# Train with ResNet-18
 python train.py --dataset ferplus --model resnet
 
-# HSEmotion ile egitim
+# Train with HSEmotion
 python train.py --dataset ferplus --model hsemotion
 ```
 
-### Model Karsilastirma
+### Model Comparison
 ```bash
-# Tum modelleri karsilastir
+# Compare all models
 python compare_models.py --dataset ferplus
 ```
 
-### Model Değerlendirme
+### Model Evaluation
 ```bash
 python evaluate.py --dataset fer2013
 ```
 
-### Webcam ile Gerçek Zamanlı Tanıma
+### Real-time Recognition via Webcam
 ```bash
 python webcam.py
 ```
-- `q` veya `ESC`: Çıkış
-- `s`: Ekran görüntüsü kaydet
+- `q` or `ESC`: Quit
+- `s`: Save screenshot
 
-### Unity 3D Modu
+### Unity 3D Mode
 ```bash
-# 1. Python TCP sunucusunu başlat
+# 1. Start the Python TCP server
 python unity_bridge.py
 
-# 2. Unity projesinde Play'e bas
+# 2. Press Play in the Unity project
 ```
 
-### Tüm İşlemleri Sırayla Çalıştır
+### Run All Steps Sequentially
 ```bash
 python main.py --mode all
 ```
 
 ---
 
-## Kullanılan Teknolojiler
+## Technologies Used
 
-| Teknoloji | Kullanım Alanı |
-|-----------|---------------|
-| **Python 3.9+** | Ana programlama dili |
-| **PyTorch** | Derin öğrenme framework'ü |
-| **MTCNN** | Gerçek zamanlı yüz algılama |
-| **OpenCV** | Görüntü işleme ve webcam |
+| Technology | Purpose |
+|-----------|---------|
+| **Python 3.9+** | Primary programming language |
+| **PyTorch** | Deep learning framework |
+| **MTCNN** | Real-time face detection |
+| **OpenCV** | Image processing and webcam |
 | **Unity 3D** | Generative data sculpture |
 | **C#** | Unity scripting |
 
-## Veri Setleri
+## Datasets
 
-| Dataset | Görüntü Sayısı | Boyut | Ortam |
-|---------|---------------|-------|-------|
-| **FER2013** | ~35,887 | 48x48 gri | Dogal |
-| **FER+** | ~78,000 | 48x48 gri | Dogal |
-| **RAF-DB** | ~29,672 | 100x100 RGB | Dogal |
-| **CK+** | ~593 sekans | 640x490 gri | Laboratuvar |
+| Dataset | Image Count | Size | Environment |
+|---------|------------|------|-------------|
+| **FER2013** | ~35,887 | 48x48 grayscale | Natural |
+| **FER+** | ~78,000 | 48x48 grayscale | Natural |
+| **RAF-DB** | ~29,672 | 100x100 RGB | Natural |
+| **CK+** | ~593 sequences | 640x490 grayscale | Laboratory |
 
 ---
 
-## Lisans
+## License
 
-Bu proje, Galatasaray Üniversitesi Bilgisayar Mühendisliği Bölümü bitirme projesi kapsamında geliştirilmiştir.
+This project was developed as a senior capstone project at Galatasaray University, Department of Computer Engineering.
 
-## Geliştirici
+## Author
 
-**Ayşenur Hepgüven**
-Galatasaray Üniversitesi - Bilgisayar Mühendisliği
+**Aysenur Hepguven**
+Galatasaray University - Computer Engineering

@@ -132,12 +132,10 @@ class UnityEmotionBridge:
 
     EMOTION_COLORS = {
         0: (0, 0, 255),       # Angry    -> Kırmızı
-        1: (0, 128, 0),       # Disgust  -> Koyu Yeşil
-        2: (128, 0, 128),     # Fear     -> Mor
-        3: (0, 255, 255),     # Happy    -> Sarı
-        4: (255, 0, 0),       # Sad      -> Mavi
-        5: (0, 165, 255),     # Surprise -> Turuncu
-        6: (200, 200, 200),   # Neutral  -> Gri
+        1: (0, 255, 255),     # Happy    -> Sarı
+        2: (255, 0, 0),       # Sad      -> Mavi
+        3: (0, 165, 255),     # Surprise -> Turuncu
+        4: (200, 200, 200),   # Neutral  -> Gri
     }
 
     def __init__(self, model_path=None, port=5555):

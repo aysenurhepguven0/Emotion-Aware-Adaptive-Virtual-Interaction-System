@@ -115,7 +115,7 @@ class EmotionPredictor:
         Returns:
             dict: {
                 'emotion': str,          # Tahmin edilen duygu
-                'emotion_id': int,       # Duygu ID'si (0-6)
+                'emotion_id': int,       # Duygu ID'si (0-4)
                 'confidence': float,     # Güven skoru (0-1)
                 'probabilities': dict    # Her duygu için olasılık
             }
